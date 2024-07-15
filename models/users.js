@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "false",
   },
-  wishlist: { type: [String], unique: true },
+  wishlist: { type: [String] },
   bookings: [
     {
       storeId: {
