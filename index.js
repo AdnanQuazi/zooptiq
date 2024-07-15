@@ -819,7 +819,10 @@ app.get("/userAuth", auth, async (req, res, next) => {
   }
 });
 app.post("/logout", (req, res) => {
-  res.clearCookie("jwt");
+  res.clearCookie("jwt",{
+    sameSite : "none",
+    secure : true
+  });
   res.status(200).send({ message: "Logged out" });
 });
 
