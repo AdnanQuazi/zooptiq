@@ -17,7 +17,7 @@ const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Types;
 const port = process.env.PORT || 3000;
 const corsOptions = {
-  origin: ["http://localhost:5173", "http://192.168.1.39:5173"],
+  origin: ["http://localhost:5173", "http://192.168.1.39:5173" , "https://zooptiq.vercel.app"],
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,
 };
@@ -695,6 +695,7 @@ app.get("/verify-user", async (req, res) => {
     res.cookie("otp", token, {
       expires: new Date(Date.now() + 5 * 60 * 1000),
       httpOnly: true,
+      sameSite : "none",
     });
     await newOtp.save();
     transporter
@@ -756,6 +757,7 @@ app.post("/signup", otpAuth, async (req, res) => {
           res.cookie("jwt", token, {
             expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             httpOnly: true,
+            sameSite : "none",
           });
           res.status(200).send({ ...newUser, password: null });
         }
@@ -780,6 +782,7 @@ app.post("/login", async (req, res, next) => {
         res.cookie("jwt", token, {
           expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           httpOnly: true,
+          sameSite : "none",
         });
         res.status(200).send("Login Successfull");
       } else {
