@@ -696,6 +696,7 @@ app.get("/verify-user", async (req, res) => {
       expires: new Date(Date.now() + 5 * 60 * 1000),
       httpOnly: true,
       sameSite : "none",
+      secure : true
     });
     await newOtp.save();
     transporter
@@ -758,6 +759,7 @@ app.post("/signup", otpAuth, async (req, res) => {
             expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             httpOnly: true,
             sameSite : "none",
+            secure : true
           });
           res.status(200).send({ ...newUser, password: null });
         }
@@ -783,6 +785,7 @@ app.post("/login", async (req, res, next) => {
           expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           httpOnly: true,
           sameSite : "none",
+          secure : true
         });
         res.status(200).send("Login Successfull");
       } else {
