@@ -308,10 +308,10 @@ const ONBOARD_FORM_CONFIG = {
         },
         required: { condition: true, error: "Shop address is required" },
         minLength: {
-          condition: 2,
+          condition: 10,
           error: "Minimum length should be 2 characters",
         },
-        maxLength: { condition: 60, error: "Only 60 charcters are allowed" },
+        maxLength: { condition: 150, error: "Only 60 charcters are allowed" },
       },
     },
     {
