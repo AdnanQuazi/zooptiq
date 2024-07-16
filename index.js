@@ -25,6 +25,13 @@ const corsOptions = {
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,
 };
+const uploadOnCloudinary = require("./utils/cloudinary")
+
+
+
+
+
+
 const UID = 40405678;
 app.use(cors(corsOptions));
 app.use(express.urlencoded({ extended: true }));
@@ -646,23 +653,10 @@ const transporter = nodemailer.createTransport({
     pass: "fijw nwwc twis dtcx",
   },
 });
-const createDirectory = (dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-};
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    let uploadPath = "uploads/";
-
-    // Check the route and set the upload path accordingly
-
-    if (req.path === "/onBoarding") {
-      uploadPath = path.join(uploadPath, "storesUploads");
-    }
-    createDirectory(uploadPath);
-    cb(null, uploadPath); // Destination folder for file uploads
+    cb(null, "/tmp") // Destination folder for file uploads
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + "-" + file.originalname); // Rename files with timestamp
@@ -1035,7 +1029,10 @@ app.post(
         }
 
         const body = req.body;
-        const files = req.files.map((file) => file.filename);
+        const files = [];
+        for(const image in req.files){
+          files.push(await uploadOnCloudinary(image.destination))
+        }
         const parsedData = {};
 
         for (let key in body) {
