@@ -191,6 +191,9 @@ const businessSchema = new mongoose.Schema({
         type : Object
         
       },
+      gender : {
+        type : String
+      },
       condition: { type: String, required: true },
       brand: { type: String, default: "Generic" },
       price: { type: Number, required: true },
