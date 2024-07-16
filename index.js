@@ -1472,20 +1472,25 @@ app.post("/generate-loyalty-code", auth, async (req, res, next) => {
       const amount = req.body.amount;
       console.log(req.body);
       if (typeof amount === "number") {
-        const loyaltyCode = uid.rnd();
-        const insertLoyalty = await BusinessData.updateOne(
-          { _id: ObjectId.createFromHexString(req.user.storeId) },
-          {
-            $push: {
-              loyalty: { code: loyaltyCode, amount },
-              $setOnInsert: { loyalty: [] },
-            },
+        if(amount > 10){
+
+          const loyaltyCode = uid.rnd();
+          const insertLoyalty = await BusinessData.updateOne(
+            { _id: ObjectId.createFromHexString(req.user.storeId) },
+            {
+              $push: {
+                loyalty: { code: loyaltyCode, amount },
+                $setOnInsert: { loyalty: [] },
+              },
+            }
+          );
+          if (insertLoyalty.modifiedCount >= 1) {
+            res.status(200).send({ code: loyaltyCode });
+          } else {
+            res.status(400).send("Failed to generate code");
           }
-        );
-        if (insertLoyalty.modifiedCount >= 1) {
-          res.status(200).send({ code: loyaltyCode });
-        } else {
-          res.status(400).send("Failed to generate code");
+        }else{
+          res.status(500).send("Amount must be a greater than 10");
         }
       } else {
         res.status(400).send("Amount must be a valid amount");
