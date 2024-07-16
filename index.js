@@ -1116,6 +1116,7 @@ app.put(
         for (let key in body) {
           parsedData[key] = JSON.parse(body[key]);
         }
+        console.log(req.files)
         const files = req.files.map(file => uploadOnCloudinary(file.path));
         const uploadedUrls = await Promise.all(files);
 
