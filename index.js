@@ -655,7 +655,7 @@ const transporter = nodemailer.createTransport({
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "./tmp") // Destination folder for file uploads
+    cb(null, "/tmp") // Destination folder for file uploads
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + "-" + file.originalname); // Rename files with timestamp
