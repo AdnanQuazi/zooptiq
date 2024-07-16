@@ -711,11 +711,11 @@ app.get("/verify-user", async (req, res) => {
         html: `<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
   <div style="margin:50px auto;width:70%;padding:20px 0">
     <div style="border-bottom:1px solid #eee">
-      <a href="" style="font-size:1.4em;color: #00466a;text-decoration:none;font-weight:600">Zooptick</a>
+      <a href="" style="font-size:1.4em;color: #a885e8;text-decoration:none;font-weight:600">Zooptick</a>
     </div>
     <p style="font-size:1.1em">Hi,</p>
-    <p>Thank you for choosing Zooptick. Use the following OTP to complete your Sign Up procedures. OTP is valid for 5 minutes</p>
-    <h2 style="background: #00466a;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${otp}</h2>
+    <p>Thank you for choosing Zooptick. Use the following OTP to complete the signup verification. OTP is valid for 5 minutes. Do not share this OTP with anyone.</p>
+    <h2 style="background: #a885e8;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${otp}</h2>
     <p style="font-size:0.9em;">Regards,<br />Zooptick</p>
     <hr style="border:none;border-top:1px solid #eee" />
   </div>
