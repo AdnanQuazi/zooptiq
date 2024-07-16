@@ -17,7 +17,11 @@ const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Types;
 const port = process.env.PORT || 3000;
 const corsOptions = {
-  origin: ["http://localhost:5173", "http://192.168.1.39:5173" , "https://zooptiq.vercel.app"],
+  origin: [
+    "http://localhost:5173",
+    "http://192.168.1.39:5173",
+    "https://zooptiq.vercel.app",
+  ],
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,
 };
@@ -695,8 +699,8 @@ app.get("/verify-user", async (req, res) => {
     res.cookie("otp", token, {
       expires: new Date(Date.now() + 5 * 60 * 1000),
       httpOnly: true,
-      sameSite : "none",
-      secure : true
+      sameSite: "none",
+      secure: true,
     });
     await newOtp.save();
     transporter
@@ -704,7 +708,18 @@ app.get("/verify-user", async (req, res) => {
         from: "Noxsh <quaziadnan12352@gmail.com>",
         to: req.query.email,
         subject: "Email Verification",
-        html: `<h1>${otp}</h1>`,
+        html: `<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
+  <div style="margin:50px auto;width:70%;padding:20px 0">
+    <div style="border-bottom:1px solid #eee">
+      <a href="" style="font-size:1.4em;color: #00466a;text-decoration:none;font-weight:600">Zooptick</a>
+    </div>
+    <p style="font-size:1.1em">Hi,</p>
+    <p>Thank you for choosing Zooptick. Use the following OTP to complete your Sign Up procedures. OTP is valid for 5 minutes</p>
+    <h2 style="background: #00466a;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${otp}</h2>
+    <p style="font-size:0.9em;">Regards,<br />Zooptick</p>
+    <hr style="border:none;border-top:1px solid #eee" />
+  </div>
+</div>`,
       })
       .then(() => {
         res.status(200).send("Success");
@@ -758,8 +773,8 @@ app.post("/signup", otpAuth, async (req, res) => {
           res.cookie("jwt", token, {
             expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             httpOnly: true,
-            sameSite : "none",
-            secure : true
+            sameSite: "none",
+            secure: true,
           });
           res.status(200).send({ ...newUser, password: null });
         }
@@ -784,8 +799,8 @@ app.post("/login", async (req, res, next) => {
         res.cookie("jwt", token, {
           expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           httpOnly: true,
-          sameSite : "none",
-          secure : true
+          sameSite: "none",
+          secure: true,
         });
         res.status(200).send("Login Successfull");
       } else {
@@ -819,9 +834,9 @@ app.get("/userAuth", auth, async (req, res, next) => {
   }
 });
 app.post("/logout", (req, res) => {
-  res.clearCookie("jwt",{
-    sameSite : "none",
-    secure : true
+  res.clearCookie("jwt", {
+    sameSite: "none",
+    secure: true,
   });
   res.status(200).send({ message: "Logged out" });
 });
@@ -881,7 +896,7 @@ app.get("/getProducts", auth, async (req, res, next) => {
       subCategory,
       brand,
       price,
-      city
+      city,
     } = req.query;
     // subCategory = subCategory.split(",").filter((item) => item.trim() !== "");
 
@@ -1167,9 +1182,12 @@ app.post("/get-store-id", async (req, res, next) => {
     const productId = req.body.productId;
     if (!productId) res.status(404).send("Product Id is Required");
     const findStore = await BusinessData.findOne({ "products._id": productId });
-    res
-      .status(200)
-      .send({ storeId: findStore._id, soldBy: findStore.shopName , shopImage : findStore.shopImage , shopLogo : findStore.shopLogo });
+    res.status(200).send({
+      storeId: findStore._id,
+      soldBy: findStore.shopName,
+      shopImage: findStore.shopImage,
+      shopLogo: findStore.shopLogo,
+    });
   } catch (error) {
     next(error);
   }
@@ -1179,9 +1197,12 @@ app.post("/get-store-name", async (req, res, next) => {
     const storeId = req.body.storeId;
     if (!storeId) res.status(404).send("Store Id is Required");
     const findStore = await BusinessData.findOne({ _id: storeId });
-    res
-      .status(200)
-      .send({ storeId: findStore._id, soldBy: findStore.shopName , shopImage : findStore.shopImage , shopLogo : findStore.shopLogo});
+    res.status(200).send({
+      storeId: findStore._id,
+      soldBy: findStore.shopName,
+      shopImage: findStore.shopImage,
+      shopLogo: findStore.shopLogo,
+    });
   } catch (error) {
     next(error);
   }
@@ -1389,82 +1410,84 @@ app.post("/onBoarding", auth, upload.any(), async (req, res, next) => {
   }
 });
 
-app.get("/wishlist" , auth , async(req,res,next) => {
+app.get("/wishlist", auth, async (req, res, next) => {
   try {
-    if(req.token){
-      const ids = req.user.wishlist.map(id => ObjectId.createFromHexString(id))
-      let idS = req.user.wishlist
-      if(ids.length === 0){
-        res.status(200).send([])
-      }else{
+    if (req.token) {
+      const ids = req.user.wishlist.map((id) =>
+        ObjectId.createFromHexString(id)
+      );
+      let idS = req.user.wishlist;
+      if (ids.length === 0) {
+        res.status(200).send([]);
+      } else {
         const query = {
-          'products._id': { $in: ids }
-       };
-  
-   
-      const cursor = await BusinessData.find(query).lean();
-      const products = []
-      
-      cursor.forEach(store => {
-        store.products.forEach(product => {
-          if(idS.includes(product._id)){
-          console.log(product)
-            products.push({...product ,  address: store.address,
-              city: store.city,
-              contactNumber: store.contactNumber,
-              email: store.email,
-              soldBy: store.shopName,})
-          }
-        })
-      })
-  
+          "products._id": { $in: ids },
+        };
 
-      res.status(200).send(products)
+        const cursor = await BusinessData.find(query).lean();
+        const products = [];
+
+        cursor.forEach((store) => {
+          store.products.forEach((product) => {
+            if (idS.includes(product._id)) {
+              console.log(product);
+              products.push({
+                ...product,
+                address: store.address,
+                city: store.city,
+                contactNumber: store.contactNumber,
+                email: store.email,
+                soldBy: store.shopName,
+              });
+            }
+          });
+        });
+
+        res.status(200).send(products);
       }
-    }else{
-      req.status(401).send("Unauthorised")
+    } else {
+      req.status(401).send("Unauthorised");
     }
   } catch (error) {
-    next(error)
+    next(error);
   }
-})
+});
 
-app.post("/update-wishlist" , auth , async(req,res,next)=>{
-  try{
-    if(req.token){
-      const { task , id} = req.body
+app.post("/update-wishlist", auth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      const { task, id } = req.body;
 
-      if(task === 'remove'){
+      if (task === "remove") {
         const wishlist = await UserData.findByIdAndUpdate(
-          {_id : req.user._id},
-          { $pull: { wishlist : id } },
+          { _id: req.user._id },
+          { $pull: { wishlist: id } },
           { new: true, useFindAndModify: false }
-      );
-      if (!wishlist) {
-          return res.status(404).send('Product not found');
-      }else{
-        return res.status(200).send('Product removed from wishlist');
-      }
-      }else{
+        );
+        if (!wishlist) {
+          return res.status(404).send("Product not found");
+        } else {
+          return res.status(200).send("Product removed from wishlist");
+        }
+      } else {
         const wishlist = await UserData.findByIdAndUpdate(
-          {_id : req.user._id},
-          { $addToSet: { wishlist : id } },
+          { _id: req.user._id },
+          { $addToSet: { wishlist: id } },
           { new: true, useFindAndModify: false }
-      );
-      if (!wishlist) {
-          return res.status(404).send('Product not found');
-      }else{
-        return res.status(200).send('Product added to wishlist');
+        );
+        if (!wishlist) {
+          return res.status(404).send("Product not found");
+        } else {
+          return res.status(200).send("Product added to wishlist");
+        }
       }
-      }
-
-    }else{
-      res.status(401).send("Unauthorized")
+    } else {
+      res.status(401).send("Unauthorized");
     }
-  }catch(error){
-    next(error)
+  } catch (error) {
+    next(error);
   }
-})
+});
 
 app.post("/generate-loyalty-code", auth, async (req, res, next) => {
   try {
@@ -1472,8 +1495,7 @@ app.post("/generate-loyalty-code", auth, async (req, res, next) => {
       const amount = req.body.amount;
       console.log(req.body);
       if (typeof amount === "number") {
-        if(amount >= 10){
-
+        if (amount >= 10) {
           const loyaltyCode = uid.rnd();
           const insertLoyalty = await BusinessData.updateOne(
             { _id: ObjectId.createFromHexString(req.user.storeId) },
@@ -1489,7 +1511,7 @@ app.post("/generate-loyalty-code", auth, async (req, res, next) => {
           } else {
             res.status(400).send("Failed to generate code");
           }
-        }else{
+        } else {
           res.status(500).send("Amount must be a greater than 10");
         }
       } else {
@@ -1549,19 +1571,19 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
             { new: true }
           );
           if (redeemCode) {
-            res.status(200).send(`Gift Card of Rs ${filterLoyalty[0].amount} has been successfully redeemed`);
+            res
+              .status(200)
+              .send(
+                `Gift Card of Rs ${filterLoyalty[0].amount} has been successfully redeemed`
+              );
           } else {
             res.status(500).send("Failed to redeem code");
           }
         } else {
-          res
-            .status(404)
-            .send("Code does not exist or is already redeemed");
+          res.status(404).send("Code does not exist or is already redeemed");
         }
       } else {
-        res
-          .status(404)
-          .send("Code does not exist or is already redeemed");
+        res.status(404).send("Code does not exist or is already redeemed");
       }
 
       // console.log(loyaltyData)
@@ -1592,8 +1614,8 @@ app.post("/admin/login", async (req, res, next) => {
         res.cookie("admin", token, {
           expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           httpOnly: true,
-          sameSite : "none",
-          secure : true
+          sameSite: "none",
+          secure: true,
         });
         res.status(200).send("Login Successfull");
       } else {
@@ -1743,17 +1765,22 @@ app.post("/admin/reject-store", adminAuth, async (req, res, next) => {
 
 ////// ADMIN ROUTESS -----------------------------------------------
 
-app.get('/location', async(req,res,next) => {
-  try{
-    const {lat,long} = req.query
-    console.log(lat,long)
-    const location = await axios.get(`https://us1.locationiq.com/v1/reverse?key=pk.63217c2db0adf79a36deb0a4b75785f7&lat=${lat}&lon=${long}&format=json`)
-    console.log(location.data)
-    res.status(200).send({neighbourhood : location.data.address.neighbourhood , city : location.data.address.city })
-  }catch(error){
-    next(error)
+app.get("/location", async (req, res, next) => {
+  try {
+    const { lat, long } = req.query;
+    console.log(lat, long);
+    const location = await axios.get(
+      `https://us1.locationiq.com/v1/reverse?key=pk.63217c2db0adf79a36deb0a4b75785f7&lat=${lat}&lon=${long}&format=json`
+    );
+    console.log(location.data);
+    res.status(200).send({
+      neighbourhood: location.data.address.neighbourhood,
+      city: location.data.address.city,
+    });
+  } catch (error) {
+    next(error);
   }
-})
+});
 
 app.use((err, req, res, next) => {
   console.error(err.stack); // Log the error stack for debugging
@@ -1766,8 +1793,6 @@ app.use((err, req, res, next) => {
     stack: process.env.NODE_ENV === "development" ? err.stack : {},
   });
 });
-
-
 
 const server = require("http").createServer(app);
 server.listen(port, () => {
