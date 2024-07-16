@@ -633,7 +633,7 @@ const fetchDataFromDB = async () => {
 
 // Fetch data initially and then at regular intervals (e.g., every 5 minutes)
 fetchDataFromDB();
-setInterval(fetchDataFromDB, 5 * 60 * 1000);
+setInterval(fetchDataFromDB, 2 * 60 * 1000);
 function addQuoteBeforeEachWord(str) {
   return str
     .trim()
