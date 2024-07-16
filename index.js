@@ -1549,7 +1549,7 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
             { new: true }
           );
           if (redeemCode) {
-            res.status(200).send(`Gift Card of Rs ${filterLoyalty.amount} has been successfully redeemed`);
+            res.status(200).send(`Gift Card of Rs ${filterLoyalty[0].amount} has been successfully redeemed`);
           } else {
             res.status(500).send("Failed to redeem code");
           }
