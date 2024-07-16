@@ -609,17 +609,17 @@ const fetchDataFromDB = async () => {
     CACHED_PRODUCTS_DATA = collections
       .map((collection) => collection.products)
       .flat();
-    const myIndex = Fuse.createIndex(
-      ["productName", "subCategory"],
-      CACHED_PRODUCTS_DATA
-    );
+    // const myIndex = Fuse.createIndex(
+    //   ["productName", "subCategory"],
+    //   CACHED_PRODUCTS_DATA
+    // );
     // Serialize and save it
-    fs.writeFileSync(
-      "fuse-index.json",
-      JSON.stringify(myIndex.toJSON()),
-      (err) => console.log(err)
-    );
-    fuseIndex = require("./fuse-index.json");
+    // fs.writeFileSync(
+    //   "fuse-index.json",
+    //   JSON.stringify(myIndex.toJSON()),
+    //   (err) => console.log(err)
+    // );
+    // fuseIndex = require("./fuse-index.json");
   } catch (error) {
     console.error("Error fetching data from MongoDB:", error);
   }
