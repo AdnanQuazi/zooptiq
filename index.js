@@ -43,7 +43,7 @@ const { log } = require("console");
 
 const ShortUniqueId = require("short-unique-id");
 const uid = new ShortUniqueId({
-  length: 6,
+  length: 8,
   dictionary: "alphanum_upper",
 });
 
@@ -1472,7 +1472,7 @@ app.post("/generate-loyalty-code", auth, async (req, res, next) => {
       const amount = req.body.amount;
       console.log(req.body);
       if (typeof amount === "number") {
-        if(amount > 10){
+        if(amount >= 10){
 
           const loyaltyCode = uid.rnd();
           const insertLoyalty = await BusinessData.updateOne(
@@ -1549,19 +1549,19 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
             { new: true }
           );
           if (redeemCode) {
-            res.status(200).send("Code redeemed successfulyy");
+            res.status(200).send(`Gift Card of Rs ${filterLoyalty.amount} has been successfully redeemed`);
           } else {
             res.status(500).send("Failed to redeem code");
           }
         } else {
           res
             .status(404)
-            .send("Loyalty code does not exist or is already redeemed");
+            .send("Code does not exist or is already redeemed");
         }
       } else {
         res
           .status(404)
-          .send("Loyalty code does not exist or is already redeemed");
+          .send("Code does not exist or is already redeemed");
       }
 
       // console.log(loyaltyData)
