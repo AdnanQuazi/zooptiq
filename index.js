@@ -25,8 +25,7 @@ const corsOptions = {
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,
 };
-const { uploadOnCloudinary } = require('./utils/cloudinary.js');
-
+const { uploadOnCloudinary } = require('./cloudinary.js');
 
 
 
@@ -656,7 +655,7 @@ const transporter = nodemailer.createTransport({
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "/tmp") // Destination folder for file uploads
+    cb(null, "./tmp") // Destination folder for file uploads
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + "-" + file.originalname); // Rename files with timestamp
@@ -1029,10 +1028,8 @@ app.post(
         }
 
         const body = req.body;
-        const files = [];
-        for(const image in req.files){
-          files.push(await uploadOnCloudinary(image.destination))
-        }
+        const files = req.files.map(file => uploadOnCloudinary(file.path));;
+        const uploadedUrls = await Promise.all(files);
         const parsedData = {};
 
         for (let key in body) {
@@ -1044,7 +1041,7 @@ app.post(
 
         const product = await BusinessData.updateOne(
           { _id: req.user.storeId },
-          { $push: { products: { ...parsedData, images: files } } }
+          { $push: { products: { ...parsedData, images: uploadedUrls } } }
         );
         if (product.acknowledged) {
           res.status(200).send("Product Added Succesfully");
@@ -1119,9 +1116,12 @@ app.put(
         for (let key in body) {
           parsedData[key] = JSON.parse(body[key]);
         }
-        const files = [
+        const files = req.files.map(file => uploadOnCloudinary(file.path));
+        const uploadedUrls = await Promise.all(files);
+
+        const newFiles = [
           ...parsedData.prevImages,
-          ...req.files.map((file) => file.filename),
+          ...uploadedUrls,
         ];
         const filter = parsedData._id;
         const update = {};
@@ -1129,7 +1129,7 @@ app.put(
         for (const [key, value] of Object.entries(parsedData)) {
           if (key === "statusAdmin" || key === "prevImages") continue;
           if (key === "images") {
-            update[`products.$[elem].${key}`] = files;
+            update[`products.$[elem].${key}`] = newFiles;
             continue;
           }
           update[`products.$[elem].${key}`] = value;
@@ -1335,14 +1335,15 @@ app.post("/onBoarding", auth, upload.any(), async (req, res, next) => {
   try {
     if (req.token) {
       if (req.user.registeredForStore === "approved") {
-        deleteFiles(req.files);
+     
         res.status(400).send("Your store is already approved");
       }
       if (req.user.registeredForStore === "pending") {
-        deleteFiles(req.files);
+ 
         res.status(400).send("We are still reviewing your store details.");
       } else {
-        const files = req.files;
+        const files = req.files.map(file => uploadOnCloudinary(file.path));;
+        const uploadedUrls = await Promise.all(files);
         const formData = {};
         Object.keys(req.body).forEach((key) => {
           const keys = key.split(".");
@@ -1360,7 +1361,7 @@ app.post("/onBoarding", auth, upload.any(), async (req, res, next) => {
           console.log(file);
           keys.reduce((acc, k, index) => {
             if (index === keys.length - 1) {
-              acc[k] = file.path;
+              acc[k] = uploadedUrls[index];
             } else {
               acc[k] = acc[k] || {};
             }
