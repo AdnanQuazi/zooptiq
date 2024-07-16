@@ -1416,6 +1416,7 @@ app.get("/wishlist", auth, async (req, res, next) => {
       const ids = req.user.wishlist.map((id) =>
         ObjectId.createFromHexString(id)
       );
+      console.log(ids)
       let idS = req.user.wishlist;
       if (ids.length === 0) {
         res.status(200).send([]);
@@ -1425,6 +1426,7 @@ app.get("/wishlist", auth, async (req, res, next) => {
         };
 
         const cursor = await BusinessData.find(query).lean();
+        console.log(cursor)
         const products = [];
 
         cursor.forEach((store) => {
