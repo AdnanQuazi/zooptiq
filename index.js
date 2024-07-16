@@ -825,6 +825,7 @@ app.get("/userAuth", auth, async (req, res, next) => {
         registeredForStore: req.user.registeredForStore
           ? req.user.registeredForStore
           : undefined,
+          wishlist : req.user.wishlist || []
       });
     } else {
       res.status(401).send("Unauthorized");
