@@ -25,7 +25,7 @@ const corsOptions = {
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,
 };
-import { uploadOnCloudinary } from './utils/cloudinaryUploader.js';
+const { uploadOnCloudinary } = require('./utils/cloudinary.js');
 
 
 
