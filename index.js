@@ -1752,7 +1752,10 @@ app.post("/admin/reject-store", adminAuth, async (req, res, next) => {
     if (req.token) {
       let storeId = req.body.storeId;
       const reason = req.body.reason;
-
+      const generateReasonHtml = `<ol>
+      ${reason.split(',').map(item => {
+        return `<li>${item}</li>`})}
+      </ol>`
       if (!storeId) {
         res.status(400).send("Store Id is required");
       } else {
@@ -1780,7 +1783,14 @@ app.post("/admin/reject-store", adminAuth, async (req, res, next) => {
                 from: "Zooptick <zooptickofficial@gmail.com>",
                 to: email,
                 subject: "Store Rejected",
-                html: `<p>Your store has been rejected due to the follwoing reason(s) - </p> </br> <h2>${reason}</h2>`,
+                html: `   <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px;">
+        <p style="font-size : 1rem;color : #a885e8">Hello,</p>
+        <p style="margin-top : 1rem;">We carefully reviewed and validated the information you provided, and we discovered the following errors:</p>
+                ${generateReasonHtml}
+        <p>Feel free, and kindly check the incorrect information and send it to us amended.</p>
+        <p style="margin-top : 1rem;">Warm Regards,<br><strong style="color : #a885e8">ZOOPTICK</strong></p>
+    </div>
+`,
               })
               .then(() => {
                 res.status(200).send("Store Rejected");
