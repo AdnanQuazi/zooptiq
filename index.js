@@ -1335,8 +1335,15 @@ app.post("/onBoarding", auth, upload.any(), async (req, res, next) => {
       if (req.user.registeredForStore === "pending") {
         res.status(400).send("We are still reviewing your store details.");
       } else {
-        const files = req.files.map((file) => uploadOnCloudinary(file.path));
-        const uploadedUrls = await Promise.all(files);
+        const uploadPromises = req.files.map(async (file) => {
+          const uploadedUrl = await uploadOnCloudinary(file.path);
+          file.uploadedUrl = uploadedUrl; // Save the URL to the file object
+          return file; // Return the updated file object
+        });
+    
+        const updatedFiles = await Promise.all(uploadPromises);
+        req.files = updatedFiles;
+
         const formData = {};
         Object.keys(req.body).forEach((key) => {
           const keys = key.split(".");
@@ -1354,14 +1361,14 @@ app.post("/onBoarding", auth, upload.any(), async (req, res, next) => {
           console.log(file);
           keys.reduce((acc, k, index) => {
             if (index === keys.length - 1) {
-              acc[k] = uploadedUrls[index];
+              acc[k] = file.uploadedUrl;
             } else {
               acc[k] = acc[k] || {};
             }
             return acc[k];
           }, formData);
         });
-        console.log(formData);
+
         const uploadStore = await admin.findOneAndUpdate(
           { UID },
           {
