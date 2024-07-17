@@ -1753,8 +1753,7 @@ app.post("/admin/reject-store", adminAuth, async (req, res, next) => {
       let storeId = req.body.storeId;
       const reason = req.body.reason;
       const generateReasonHtml = `<ol>
-      ${reason.split(',').map(item => {
-        return `<li>${item}</li>`})}
+      ${reason.split(',').map(item => `<li>${item}</li>`).join('')}
       </ol>`
       if (!storeId) {
         res.status(400).send("Store Id is required");
