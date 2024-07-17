@@ -649,8 +649,8 @@ const transporter = nodemailer.createTransport({
   port: 465,
   secure: true,
   auth: {
-    user: "quaziadnan12352@gmail.com",
-    pass: "fijw nwwc twis dtcx",
+    user: "zooptickofficial@gmail.com",
+    pass: "krds slmo jjgd smex",
   },
 });
 
@@ -699,7 +699,7 @@ app.get("/verify-user", async (req, res) => {
     await newOtp.save();
     transporter
       .sendMail({
-        from: "Noxsh <quaziadnan12352@gmail.com>",
+        from: "Zooptick <zooptickofficial@gmail.com>",
         to: req.query.email,
         subject: "Email Verification",
         html: `<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
@@ -1609,7 +1609,7 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
 app.get("/adminAuth", adminAuth, async (req, res, next) => {
   try {
     if (req.token) {
-      
+
       const { UID , stores} = req.admin;
       res.status(200).send({
         UID,
@@ -1760,7 +1760,7 @@ app.post("/admin/reject-store", adminAuth, async (req, res, next) => {
           if (updateUser.modifiedCount === 1) {
             transporter
               .sendMail({
-                from: "Noxsh <quaziadnan12352@gmail.com>",
+                from: "Zooptick <zooptickofficial@gmail.com>",
                 to: email,
                 subject: "Store Rejected",
                 html: `<p>Your store has been rejected due to the follwoing reason(s) - </p> </br> <h2>${reason}</h2>`,
