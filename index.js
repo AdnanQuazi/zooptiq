@@ -1609,6 +1609,7 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
 app.get("/adminAuth", adminAuth, async (req, res, next) => {
   try {
     if (req.token) {
+      
       const { UID , stores} = req.admin;
       res.status(200).send({
         UID,
