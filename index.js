@@ -1606,6 +1606,23 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
 
 ////// ADMIN ROUTES -----------------------------------------------
 
+app.get("/adminAuth", adminAuth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      const { UID , stores} = req.admin;
+      res.status(200).send({
+        UID,
+        stores
+      });
+    } else {
+      res.status(401).send("Unauthorized");
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+
 app.post("/admin/login", async (req, res, next) => {
   try {
     const { UID, password } = req.body;
