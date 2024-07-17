@@ -21,16 +21,12 @@ const corsOptions = {
     "http://localhost:5173",
     "https://zooptiq.vercel.app",
     "https://www.zooptick.com",
-    "https://www.zooptick.in"
+    "https://www.zooptick.in",
   ],
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,
 };
-const { uploadOnCloudinary } = require('./cloudinary.js');
-
-
-
-
+const { uploadOnCloudinary } = require("./cloudinary.js");
 
 const UID = 40405678;
 app.use(cors(corsOptions));
@@ -656,7 +652,7 @@ const transporter = nodemailer.createTransport({
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "/tmp") // Destination folder for file uploads
+    cb(null, "/tmp"); // Destination folder for file uploads
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + "-" + file.originalname); // Rename files with timestamp
@@ -819,7 +815,7 @@ app.get("/userAuth", auth, async (req, res, next) => {
         registeredForStore: req.user.registeredForStore
           ? req.user.registeredForStore
           : undefined,
-          wishlist : req.user.wishlist || []
+        wishlist: req.user.wishlist || [],
       });
     } else {
       res.status(401).send("Unauthorized");
@@ -1029,7 +1025,7 @@ app.post(
         }
 
         const body = req.body;
-        const files = req.files.map(file => uploadOnCloudinary(file.path));;
+        const files = req.files.map((file) => uploadOnCloudinary(file.path));
         const uploadedUrls = await Promise.all(files);
         const parsedData = {};
 
@@ -1117,14 +1113,11 @@ app.put(
         for (let key in body) {
           parsedData[key] = JSON.parse(body[key]);
         }
-        console.log(req.files)
-        const files = req.files.map(file => uploadOnCloudinary(file.path));
+        console.log(req.files);
+        const files = req.files.map((file) => uploadOnCloudinary(file.path));
         const uploadedUrls = await Promise.all(files);
 
-        const newFiles = [
-          ...parsedData.prevImages,
-          ...uploadedUrls,
-        ];
+        const newFiles = [...parsedData.prevImages, ...uploadedUrls];
         const filter = parsedData._id;
         const update = {};
 
@@ -1337,14 +1330,12 @@ app.post("/onBoarding", auth, upload.any(), async (req, res, next) => {
   try {
     if (req.token) {
       if (req.user.registeredForStore === "approved") {
-     
         res.status(400).send("Your store is already approved");
       }
       if (req.user.registeredForStore === "pending") {
- 
         res.status(400).send("We are still reviewing your store details.");
       } else {
-        const files = req.files.map(file => uploadOnCloudinary(file.path));;
+        const files = req.files.map((file) => uploadOnCloudinary(file.path));
         const uploadedUrls = await Promise.all(files);
         const formData = {};
         Object.keys(req.body).forEach((key) => {
@@ -1417,7 +1408,7 @@ app.get("/wishlist", auth, async (req, res, next) => {
       const ids = req.user.wishlist.map((id) =>
         ObjectId.createFromHexString(id)
       );
-      console.log(ids)
+      console.log(ids);
       let idS = req.user.wishlist;
       if (ids.length === 0) {
         res.status(200).send([]);
@@ -1427,7 +1418,7 @@ app.get("/wishlist", auth, async (req, res, next) => {
         };
 
         const cursor = await BusinessData.find(query).lean();
-        console.log(cursor)
+        console.log(cursor);
         const products = [];
 
         cursor.forEach((store) => {
@@ -1609,11 +1600,10 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
 app.get("/adminAuth", adminAuth, async (req, res, next) => {
   try {
     if (req.token) {
-
-      const { UID , stores} = req.admin;
+      const { UID, stores } = req.admin;
       res.status(200).send({
         UID,
-        stores
+        stores,
       });
     } else {
       res.status(401).send("Unauthorized");
@@ -1622,7 +1612,6 @@ app.get("/adminAuth", adminAuth, async (req, res, next) => {
     next(error);
   }
 });
-
 
 app.post("/admin/login", async (req, res, next) => {
   try {
@@ -1717,7 +1706,35 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
           );
 
           if (updateUser.modifiedCount === 1) {
-            res.status(200).send("Approved Successfully");
+            transporter
+              .sendMail({
+                from: "Zooptick <zooptickofficial@gmail.com>",
+                to: email,
+                subject: "Store Approved",
+                html: `<div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 10px;">
+        <h2 style="text-align: center; color: #4CAF50;">Congratulations</h2>
+        <h1 style="text-align: center;">Welcome to Zooptick</h1>
+        <div style="border-top: 1px solid #ccc;margin-top : 1rem; padding-top: 10px; text-align: left;">
+           <p>Your request has been approved and you can go live now . To add products, Click the link below</p>
+           <a href="https://www.zooptick.com/dashboard/products">Add products</a>
+        </div>
+        <p style="text-align: left;margin-top: 2rem; font-size: 1.2em;">
+            Best Wishes,
+            <br>
+            <strong>Team Zooptick</strong>
+        </p>
+         <div style="text-align: center; margin-top: 50px;">
+            <img src="https://www.zooptick.com/assets/zooptickWhite-CxScf5Y4.svg" alt="Zooptick Image" width="250" height="50" style="display: inline-block;">
+        </div>
+        
+    </div>`,
+              })
+              .then(() => {
+                res.status(200).send("Approved Successfully");
+              })
+              .catch((err) => {
+                res.status(500).send(err);
+              });
           } else {
             res.status(500).send("Something went wrong");
           }
