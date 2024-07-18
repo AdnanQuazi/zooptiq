@@ -723,6 +723,32 @@ app.post("/forgot-password", async (req, res, next) => {
   }
 });
 
+app.post("/reset-password/:token", async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    const user = await UserData.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res
+        .status(400)
+        .send("Password reset token is invalid or has expired");
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+    res.status(200).send("Password has been reset");
+  } catch (error) {
+    next(error)
+  }
+});
+
 app.get("/verify-user", async (req, res) => {
   try {
     const otp = generateOtp();
