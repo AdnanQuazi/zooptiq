@@ -761,8 +761,6 @@ app.get("/verify-user", async (req, res) => {
     res.cookie("otp", token, {
       expires: new Date(Date.now() + 5 * 60 * 1000),
       httpOnly: true,
-      sameSite: "none",
-      secure: true,
     });
     await newOtp.save();
     transporter
@@ -835,8 +833,6 @@ app.post("/signup", otpAuth, async (req, res) => {
           res.cookie("jwt", token, {
             expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             httpOnly: true,
-            sameSite: "none",
-            secure: true,
           });
           res.status(200).send({ ...newUser, password: null });
         }
@@ -861,8 +857,6 @@ app.post("/login", async (req, res, next) => {
         res.cookie("jwt", token, {
           expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           httpOnly: true,
-          sameSite: "none",
-          secure: true,
         });
         res.status(200).send("Login Successfull");
       } else {
@@ -898,8 +892,6 @@ app.get("/userAuth", auth, async (req, res, next) => {
 });
 app.post("/logout", (req, res) => {
   res.clearCookie("jwt", {
-    sameSite: "none",
-    secure: true,
   });
   res.status(200).send({ message: "Logged out" });
 });
@@ -1761,8 +1753,6 @@ app.post("/admin/login", async (req, res, next) => {
         res.cookie("admin", token, {
           expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           httpOnly: true,
-          sameSite: "none",
-          secure: true,
         });
         res.status(200).send("Login Successfull");
       } else {
