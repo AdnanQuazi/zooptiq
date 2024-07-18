@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "false",
   },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: {
+    type: Date,
+  },
   wishlist: { type: [String] },
   bookings: [
     {
