@@ -698,21 +698,22 @@ app.post("/forgot-password", async (req, res, next) => {
         from: "Zooptick <zooptickofficial@gmail.com>",
         to: user.email,
         subject: "Reset Password",
-        html: `<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
+        html: `<div style="font-family: Helvetica,Arial,sans-serif;min-width:100%;overflow:auto;line-height:2">
 <div style="margin:50px auto;width:70%;padding:20px 0">
   <div style="border-bottom:1px solid #eee">
     <a href="" style="font-size:1.4em;color: #a885e8;text-decoration:none;font-weight:600">Zooptick</a>
   </div>
   <p style="font-size:1.1em">Hi ${user.name}</p>
   <p>We received a request to reset your password. Click the button below to reset it.</p>
-  <button style="background: #a885e8;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">Click to Reset Password</button>
-  <p style="font-size:0.9em;">Regards,<br />Zooptick</p>
+  <a target="_blank" href="https://www.zooptick.com/reset-password/${token}" style="display : block;background: #a885e8;margin:2rem auto;width: max-content;padding: 10px;color: #fff;border-radius: 4px;">Reset Password</a>
+      <p >If you did not request a password reset, please ignore this email or contact support if you have questions.</p>
+            <p style="margin-top:2rem;">Team Zooptick</p>
   <hr style="border:none;border-top:1px solid #eee" />
 </div>
 </div>`,
       })
       .then(() => {
-        res.status(200).send("Success");
+        res.status(200).send("Email is sent containing reset link");
       })
       .catch((err) => {
         res.status(500).send(err);
@@ -742,22 +743,21 @@ app.get("/verify-user", async (req, res) => {
         from: "Zooptick <zooptickofficial@gmail.com>",
         to: req.query.email,
         subject: "Email Verification",
-        html: `<div style="font-family: Helvetica,Arial,sans-serif;min-width:100%;overflow:auto;line-height:2">
-<div style="margin:50px auto;width:70%;padding:20px 0">
-  <div style="border-bottom:1px solid #eee">
-    <a href="" style="font-size:1.4em;color: #a885e8;text-decoration:none;font-weight:600">Zooptick</a>
+        html: `<div style="font-family: Helvetica,Arial,sans-serif;min-width:1000px;overflow:auto;line-height:2">
+  <div style="margin:50px auto;width:70%;padding:20px 0">
+    <div style="border-bottom:1px solid #eee">
+      <a href="" style="font-size:1.4em;color: #a885e8;text-decoration:none;font-weight:600">Zooptick</a>
+    </div>
+    <p style="font-size:1.1em">Hi,</p>
+    <p>Thank you for choosing Zooptick. Use the following OTP to complete the signup verification. OTP is valid for 5 minutes. Do not share this OTP with anyone.</p>
+    <h2 style="background: #a885e8;margin: 0 auto;width: max-content;padding: 0 10px;color: #fff;border-radius: 4px;">${otp}</h2>
+    <p style="font-size:0.9em;">Regards,<br />Zooptick</p>
+    <hr style="border:none;border-top:1px solid #eee" />
   </div>
-  <p style="font-size:1.1em">Hi ${user.name}</p>
-  <p>We received a request to reset your password. Click the button below to reset it.</p>
-  <a target="_blank" href="https://www.zooptick.com/reset-password/${token}" style="display : block;background: #a885e8;margin:2rem auto;width: max-content;padding: 10px;color: #fff;border-radius: 4px;">Reset Password</a>
-      <p >If you did not request a password reset, please ignore this email or contact support if you have questions.</p>
-            <p style="margin-top:2rem;">Team Zooptick</p>
-  <hr style="border:none;border-top:1px solid #eee" />
-</div>
 </div>`,
       })
       .then(() => {
-        res.status(200).send("Email is sent containing reset link");
+        res.status(200).send("Success");
       })
       .catch((err) => {
         res.status(500).send(err);
