@@ -742,11 +742,11 @@ app.post("/reset-password/:token", async (req, res, next) => {
     user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
-    console.log(user)
+    console.log(user);
     await user.save();
     res.status(200).send("Password has been reset");
   } catch (error) {
-    next(error)
+    next(error);
   }
 });
 
@@ -946,6 +946,33 @@ app.get("/login-merchant", businessAuth, async (req, res) => {
 //     res.send(error);
 //   }
 // });
+
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const toRad = (value) => (value * Math.PI) / 180;
+
+  const R = 6371; // Radius of the Earth in kilometers
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in kilometers
+console.log(distance)
+  return distance;
+};
+
+const getProductsWithinDistance = (userLat, userLon, products, maxDistance) => {
+  return products.filter(product => {
+    const distance = calculateDistance(userLat, userLon, product.lat, product.long);
+    return distance <= maxDistance;
+  });
+};
+
+
 app.get("/getProducts", auth, async (req, res, next) => {
   try {
     const filter = {};
@@ -960,6 +987,9 @@ app.get("/getProducts", auth, async (req, res, next) => {
       brand,
       price,
       city,
+      lat,
+      long,
+      maxDistance
     } = req.query;
     // subCategory = subCategory.split(",").filter((item) => item.trim() !== "");
 
@@ -999,6 +1029,8 @@ app.get("/getProducts", auth, async (req, res, next) => {
               contactNumber: collections[i].contactNumber,
               email: collections[i].email,
               soldBy: collections[i].shopName,
+              lat: collections[i].location.coordinates[0],
+              long: collections[i].location.coordinates[1],
             });
           });
           break;
@@ -1015,15 +1047,31 @@ app.get("/getProducts", auth, async (req, res, next) => {
               contactNumber: collections[i].contactNumber,
               email: collections[i].email,
               soldBy: collections[i].shopName,
+              lat: collections[i].location.coordinates[0],
+              long: collections[i].location.coordinates[1],
             });
           });
           // productsData = [...productsData , ...collections[i].products];
         }
       }
     } else {
-      productsData = CACHED_PRODUCTS_DATA;
+      for (let i = 0; i < collections.length; i++) {
+        collections[i].products.map((elem) => {
+          productsData.push({
+            ...elem,
+            address: collections[i].address,
+            city: collections[i].city,
+            contactNumber: collections[i].contactNumber,
+            email: collections[i].email,
+            soldBy: collections[i].shopName,
+            lat: collections[i].location.coordinates[0],
+            long: collections[i].location.coordinates[1],
+          });
+        });
+        // productsData = [...productsData , ...collections[i].products];
+      }
     }
-    console.log(productsData);
+
     if (search !== "") {
       const fuse = new Fuse(productsData, options);
       let modifiedString = addQuoteBeforeEachWord(search);
@@ -1056,6 +1104,16 @@ app.get("/getProducts", auth, async (req, res, next) => {
       finalResult = finalResult.filter((product) =>
         subCategory.includes(product.subCategory)
       );
+    }
+    if(maxDistance <= 20 && maxDistance >= 1){
+      finalResult = getProductsWithinDistance(lat, long, finalResult, parseInt(maxDistance));
+    }
+    if (lat && long) {
+      finalResult = finalResult.sort((a, b) => {
+        const distanceA = calculateDistance(lat, long, a.lat, a.long);
+        const distanceB = calculateDistance(lat, long, b.lat, b.long);
+        return distanceA - distanceB;
+      });
     }
     if (rating === "true") {
       finalResult.sort(
@@ -1898,28 +1956,36 @@ app.get("/location", async (req, res, next) => {
   try {
     const { lat, long } = req.query;
     console.log(lat, long);
-    const { data: { results: results } } = await axios.get(
+    const {
+      data: { results: results },
+    } = await axios.get(
       `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${long}&api_key=QZQMlxb9q6t1AefOegtt4Ck8d4oTi3kUf5X34TPE`
     );
-    const addressComponents = results[1].address_components
-    const formateddAddress = results[1].formatted_address
+    const addressComponents = results[1].address_components;
+    const formateddAddress = results[1].formatted_address;
 
     const getAddressStringAndLocality = (components) => {
       const types = ["neighborhood", "sublocality", "locality"];
-      const shortNames = types.map(type => {
-        const component = components.find(component => component.types.includes(type));
-        return component ? component.short_name : '';
+      const shortNames = types.map((type) => {
+        const component = components.find((component) =>
+          component.types.includes(type)
+        );
+        return component ? component.short_name : "";
       });
-    
-      const combinedString = shortNames.filter(name => name).join(', ');
-    
-      const localityComponent = components.find(component => component.types.includes("locality"));
-      const locality = localityComponent ? localityComponent.short_name : '';
-    
+
+      const combinedString = shortNames.filter((name) => name).join(", ");
+
+      const localityComponent = components.find((component) =>
+        component.types.includes("locality")
+      );
+      const locality = localityComponent ? localityComponent.short_name : "";
+
       return { combinedString, locality };
     };
-    
-    const { combinedString, locality } = getAddressStringAndLocality(addressComponents);
+
+    const { combinedString, locality } = getAddressStringAndLocality(
+      addressComponents
+    );
     res.status(200).send({
       address: formateddAddress,
       city: locality,
