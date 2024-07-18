@@ -1898,13 +1898,31 @@ app.get("/location", async (req, res, next) => {
   try {
     const { lat, long } = req.query;
     console.log(lat, long);
-    const location = await axios.get(
-      `https://us1.locationiq.com/v1/reverse?key=pk.63217c2db0adf79a36deb0a4b75785f7&lat=${lat}&lon=${long}&format=json`
+    const { data: { results: results } } = await axios.get(
+      `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${long}&api_key=QZQMlxb9q6t1AefOegtt4Ck8d4oTi3kUf5X34TPE`
     );
-    console.log(location.data);
+    const addressComponents = results[1].address_components
+    const formateddAddress = results[1].formatted_address
+
+    const getAddressStringAndLocality = (components) => {
+      const types = ["neighborhood", "sublocality", "locality"];
+      const shortNames = types.map(type => {
+        const component = components.find(component => component.types.includes(type));
+        return component ? component.short_name : '';
+      });
+    
+      const combinedString = shortNames.filter(name => name).join(', ');
+    
+      const localityComponent = components.find(component => component.types.includes("locality"));
+      const locality = localityComponent ? localityComponent.short_name : '';
+    
+      return { combinedString, locality };
+    };
+    
+    const { combinedString, locality } = getAddressStringAndLocality(addressComponents);
     res.status(200).send({
-      neighbourhood: location.data.address.neighbourhood,
-      city: location.data.address.city,
+      address: formateddAddress,
+      city: locality,
     });
   } catch (error) {
     next(error);
