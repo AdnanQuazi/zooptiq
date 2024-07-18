@@ -739,9 +739,10 @@ app.post("/reset-password/:token", async (req, res, next) => {
         .send("Password reset token is invalid or has expired");
     }
 
-    user.password = await bcrypt.hash(password, 10);
+    user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
+    console.log(user)
     await user.save();
     res.status(200).send("Password has been reset");
   } catch (error) {
