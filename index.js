@@ -983,6 +983,7 @@ app.get("/getProducts", auth, async (req, res, next) => {
       long,
       maxDistance
     } = req.query;
+    maxDistance = parseInt(maxDistance)
     // subCategory = subCategory.split(",").filter((item) => item.trim() !== "");
 
     // subCategory = subCategory
