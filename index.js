@@ -952,8 +952,6 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in kilometers
-console.log(distance)
   return distance;
 };
 
@@ -1006,11 +1004,13 @@ app.get("/getProducts", auth, async (req, res, next) => {
       includeScore: true,
       shouldSort: true,
       useExtendedSearch: true,
-      keys: [{ name: "productName", weight: 2 }, "subCategory"],
+      keys: [{ name: "productName", weight: 3 }, "subCategory"],
     };
 
     let productsData = [];
-
+    if(collections.length < 1){
+     return res.status(500).send("Data not loaded")
+    }
     if (documentID) {
       for (let i = 0; i < collections.length; i++) {
         if (collections[i]._id == documentID) {
@@ -1065,6 +1065,8 @@ app.get("/getProducts", auth, async (req, res, next) => {
       }
     }
 
+
+
     if (search !== "") {
       const fuse = new Fuse(productsData, options);
       let modifiedString = addQuoteBeforeEachWord(search);
@@ -1074,12 +1076,15 @@ app.get("/getProducts", auth, async (req, res, next) => {
           { subCategory: modifiedString },
           { productName: search },
           { subCategory: search },
+
         ],
       });
       finalResult = result.map((elem) => elem.item);
     } else {
       finalResult = productsData;
     }
+
+    console.log(finalResult)
 
     if (mode !== "merchant") {
       brand = brand.split(",").filter((item) => item.trim() !== "");
@@ -1098,8 +1103,9 @@ app.get("/getProducts", auth, async (req, res, next) => {
         subCategory.includes(product.subCategory)
       );
     }
-    if(maxDistance <= 20 && maxDistance >= 1){
-      finalResult = getProductsWithinDistance(lat, long, finalResult, parseInt(maxDistance));
+
+    if(maxDistance <= 50 && maxDistance >= 1){
+      finalResult = getProductsWithinDistance(lat, long, finalResult, maxDistance);
     }
     if (lat && long) {
       finalResult = finalResult.sort((a, b) => {
