@@ -1858,7 +1858,7 @@ app.post("/verify-payment", auth, async (req, res, next) => {
 
     // Create ExpectedSign
     const expectedSign = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET_PROD)
       .update(sign.toString())
       .digest("hex");
 
