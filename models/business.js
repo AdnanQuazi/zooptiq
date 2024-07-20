@@ -184,15 +184,14 @@ const businessSchema = new mongoose.Schema({
         type: String,
         required: true,
       },
-      sizes:{
-        type : Object
+      sizes: {
+        type: Object,
       },
-      sizesFootwear : {
-        type : Object
-        
+      sizesFootwear: {
+        type: Object,
       },
-      gender : {
-        type : String
+      gender: {
+        type: String,
       },
       condition: { type: String, required: true },
       brand: { type: String, default: "Generic" },
@@ -201,12 +200,12 @@ const businessSchema = new mongoose.Schema({
       discount: { type: Number, default: 0 },
       images: [String],
       colors: [String],
-      hasVariation : {
-        type : Boolean,
-        requried : true
+      hasVariation: {
+        type: Boolean,
+        requried: true,
       },
-      variations : {
-        type : Object,
+      variations: {
+        type: Object,
       },
       status: {
         type: Boolean,
@@ -229,16 +228,19 @@ const businessSchema = new mongoose.Schema({
       },
     },
   ],
-  loyalty : [{
-    code : {
-      type : String,
-      required : true
+  bookings: [String],
+  loyalty: [
+    {
+      code: {
+        type: String,
+        required: true,
+      },
+      amount: {
+        type: Number,
+        required: true,
+      },
     },
-    amount : {
-      type : Number,
-      required : true
-    }
-  }],
+  ],
   createdAt: {
     type: Date,
     default: Date.now,

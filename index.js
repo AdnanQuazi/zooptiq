@@ -28,6 +28,11 @@ const corsOptions = {
   credentials: true,
 };
 const { uploadOnCloudinary } = require("./cloudinary.js");
+const Razorpay = require("razorpay");
+const razorpayInstance = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID_PROD,
+  key_secret: process.env.RAZORPAY_KEY_SECRET_PROD,
+});
 
 const UID = 40405678;
 app.use(cors(corsOptions));
@@ -42,6 +47,8 @@ const UserData = require("./models/users");
 const admin = require("./models/admin");
 const BusinessData = require("./models/business");
 const OtpData = require("./models/otp");
+const BookingsData = require("./models/bookings");
+const PaymentData = require("./models/payment");
 const auth = require("./middleware/auth");
 const adminAuth = require("./middleware/adminAuth");
 const businessAuth = require("./middleware/businessAuth");
@@ -891,8 +898,7 @@ app.get("/userAuth", auth, async (req, res, next) => {
   }
 });
 app.post("/logout", (req, res) => {
-  res.clearCookie("jwt", {
-  });
+  res.clearCookie("jwt", {});
   res.status(200).send({ message: "Logged out" });
 });
 
@@ -952,16 +958,21 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
       Math.sin(dLon / 2) *
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
   return distance;
 };
 
 const getProductsWithinDistance = (userLat, userLon, products, maxDistance) => {
-  return products.filter(product => {
-    const distance = calculateDistance(userLat, userLon, product.lat, product.long);
+  return products.filter((product) => {
+    const distance = calculateDistance(
+      userLat,
+      userLon,
+      product.lat,
+      product.long
+    );
     return distance <= maxDistance;
   });
 };
-
 
 app.get("/getProducts", auth, async (req, res, next) => {
   try {
@@ -979,9 +990,9 @@ app.get("/getProducts", auth, async (req, res, next) => {
       city,
       lat,
       long,
-      maxDistance
+      maxDistance,
     } = req.query;
-    maxDistance = parseInt(maxDistance)
+    maxDistance = parseInt(maxDistance);
     // subCategory = subCategory.split(",").filter((item) => item.trim() !== "");
 
     // subCategory = subCategory
@@ -1008,8 +1019,8 @@ app.get("/getProducts", auth, async (req, res, next) => {
     };
 
     let productsData = [];
-    if(collections.length < 1){
-     return res.status(500).send("Data not loaded")
+    if (collections.length < 1) {
+      return res.status(500).send("Data not loaded");
     }
     if (documentID) {
       for (let i = 0; i < collections.length; i++) {
@@ -1065,8 +1076,6 @@ app.get("/getProducts", auth, async (req, res, next) => {
       }
     }
 
-
-
     if (search !== "") {
       const fuse = new Fuse(productsData, options);
       let modifiedString = addQuoteBeforeEachWord(search);
@@ -1076,7 +1085,6 @@ app.get("/getProducts", auth, async (req, res, next) => {
           { subCategory: modifiedString },
           { productName: search },
           { subCategory: search },
-
         ],
       });
       finalResult = result.map((elem) => elem.item);
@@ -1084,7 +1092,7 @@ app.get("/getProducts", auth, async (req, res, next) => {
       finalResult = productsData;
     }
 
-    console.log(finalResult)
+    console.log(finalResult);
 
     if (mode !== "merchant") {
       brand = brand.split(",").filter((item) => item.trim() !== "");
@@ -1104,8 +1112,13 @@ app.get("/getProducts", auth, async (req, res, next) => {
       );
     }
 
-    if(maxDistance <= 50 && maxDistance >= 1){
-      finalResult = getProductsWithinDistance(lat, long, finalResult, maxDistance);
+    if (maxDistance <= 50 && maxDistance >= 1) {
+      finalResult = getProductsWithinDistance(
+        lat,
+        long,
+        finalResult,
+        maxDistance
+      );
     }
     if (lat && long) {
       finalResult = finalResult.sort((a, b) => {
@@ -1731,6 +1744,200 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
   }
 });
 
+///////ORDER & PAYMENT------------------------------------------------------------------------------------------
+
+app.post("/create-order", auth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      let totalAmount = 0;
+      const products = req.body.products;
+      const ids = Object.values(products).map((p) =>
+        ObjectId.createFromHexString(p.productId)
+      );
+      const idsC = Object.values(products).map((p) => p.productId);
+      // Fetch documents containing the products
+      const documents = await BusinessData.find({
+        "products._id": { $in: ids },
+      }).lean();
+      // Extract matched products
+      let filteredProducts;
+      let matchedProducts = [];
+      documents.forEach((doc) => {
+        filteredProducts = doc.products.filter(prod => idsC.includes(String(prod._id)))
+      })
+      Object.values(products).forEach(prod => {
+       for(const product of filteredProducts){
+        if(String(product._id) === prod.productId){
+          totalAmount += (product.price * prod.quantity)
+          break
+        }
+       }
+      })
+      const amount = totalAmount;
+
+      const options = {
+        amount: Number(amount * 100),
+        currency: "INR",
+        receipt: crypto.randomBytes(10).toString("hex"),
+      };
+
+      razorpayInstance.orders.create(options, (error, order) => {
+        if (error) {
+          console.log(error);
+          return res.status(500).json({ message: "Something Went Wrong!" });
+        }
+        res.status(200).json({ data: order });
+      });
+    } else {
+      res.status(401).send("Unauthorized");
+    }
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
+
+
+app.post("/get-orders" , auth , async(req,res,next) => {
+  try{  
+    if(req.token){
+      const { pageParam = 0 } = req.query
+      const bookings = await BookingsData.find({
+        orderId : { $in: req.user.bookings }
+      }).skip(pageParam).limit(PAGINATION_LIMIT);
+      res.send(bookings)
+    }else{
+      res.status(401).send("Unauthorized")
+    }
+  }catch(error){
+    next(error)
+  }
+})
+
+
+app.post("/get-merchant-orders" , auth , async(req,res,next) => {
+  try{  
+    if(req.token){
+      const { pageParam = 1 } = req.query
+      const findStore = await BusinessData.findById(req.user.storeId)
+      if(findStore.bookings.length < 1){
+        return res.status(200).send([])
+      }
+      const bookings = await BookingsData.find({
+        orderId : { $in: findStore.bookings }
+      }).skip(pageParam - 1).limit(PAGINATION_LIMIT);
+      res.send(bookings)
+    }else{
+      res.status(401).send("Unauthorized")
+    }
+  }catch(error){
+    next(error)
+  }
+})
+
+app.post("/verify-payment", auth, async (req, res, next) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      products,
+    } = req.body;
+
+    const productDetails = Object.values(products).map((p) => p);
+    const userDetails = req.user;
+    const orderId = razorpay_order_id;
+    const orderDetails = await razorpayInstance.orders.fetch(orderId);
+    const paymentDetails = await razorpayInstance.orders.fetchPayments(orderId);
+    const storeDetails = await BusinessData.findOne({
+      "products._id": productDetails[0].productId,
+    }).lean();
+    console.log(productDetails);
+    // Create Sign
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+
+    // Create ExpectedSign
+    const expectedSign = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(sign.toString())
+      .digest("hex");
+
+    // console.log(razorpay_signature === expectedSign);
+
+    // Create isAuthentic
+    const isAuthentic = expectedSign === razorpay_signature;
+
+    // Condition
+    if (isAuthentic) {
+      const session = await mongoose.startSession();
+      session.startTransaction();
+      const bookingData = {
+        userId: userDetails.id,
+        userName: userDetails.name,
+        userEmail: userDetails.email,
+        storeId: String(storeDetails._id),
+        storeName: storeDetails.shopName,
+        address: storeDetails.address,
+        contact: storeDetails.contactNumber,
+        bookingDateTime: new Date().toISOString(),
+        orderId: orderId,
+        orderStatus: "Awaiting Confirmation",
+        amount: orderDetails.amount,
+        amountPaid: orderDetails.amount_paid,
+        paymentStatus: "Completed",
+        products: productDetails.map(p => ({
+          productId: p.productId, // Assuming `productId` is in `productsData`
+          size: p.size,
+          color: p.color,
+          price : p.price,
+          name: p.productName,
+          image: p.image,
+          quantity: p.quantity, // Ensure `quantity` is present in `productsData`
+      })),
+      };
+      const newBooking = new BookingsData(bookingData);
+      const savedBooking = await newBooking.save({ session });
+
+      await UserData.findByIdAndUpdate(
+        { _id: userDetails.id },
+        { $push: { bookings: savedBooking.orderId } },
+        { new: true, session }
+      );
+      await BusinessData.findOneAndUpdate(
+        { _id: String(storeDetails._id) },
+        { $push: { bookings: savedBooking.orderId } },
+        { new: true, session }
+      );
+      const payment = new PaymentData({
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+      });
+
+      // Save Payment
+      await payment.save({ session });
+      await session.commitTransaction();
+      session.endSession();
+
+      // Send Message
+      res.json({
+        message: "Payment Successfull",
+      });
+    }else{
+      res.json({
+        message : "Payment Failed"
+      })
+    }
+  } catch (error) {
+    console.log(error);
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({ message: "Internal Server Error!" });
+  }
+});
+
+///////ORDER & PAYMENT------------------------------------------------------------------------------------------
+
 ////// ADMIN ROUTES -----------------------------------------------
 
 app.get("/adminAuth", adminAuth, async (req, res, next) => {
@@ -2008,3 +2215,29 @@ const server = require("http").createServer(app);
 server.listen(port, () => {
   console.log("Conection is established at " + port);
 });
+
+function formatToLocalTime(isoString) {
+  const date = new Date(isoString);
+  const options = {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata", // Indian Standard Time (IST)
+  };
+
+  const formatter = new Intl.DateTimeFormat("en-IN", options);
+  const parts = formatter.formatToParts(date);
+
+  // Manually format the parts to the desired string format
+  const day = parts.find((p) => p.type === "day").value;
+  const month = parts.find((p) => p.type === "month").value;
+  const year = parts.find((p) => p.type === "year").value;
+  const hour = parts.find((p) => p.type === "hour").value;
+  const minute = parts.find((p) => p.type === "minute").value;
+  const period = parts.find((p) => p.type === "dayPeriod").value; // AM/PM
+
+  return `${day}/${month}/${year} - ${hour}:${minute} ${period}`;
+}

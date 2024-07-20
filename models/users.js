@@ -35,34 +35,7 @@ const userSchema = new mongoose.Schema({
     type: Date,
   },
   wishlist: { type: [String] },
-  bookings: [
-    {
-      storeId: {
-        type: String,
-        requried: true,
-      },
-      boookingDate: {
-        type: String,
-        requried: true,
-      },
-      products: [
-        {
-          productId: {
-            type: String,
-            requried: true,
-          },
-          productVariation: {
-            type: String,
-            requried: true,
-          },
-          productQuantity: {
-            type: String,
-            required: true,
-          },
-        },
-      ],
-    },
-  ],
+  bookings: [String],
   storeId: {
     type: String,
   },
