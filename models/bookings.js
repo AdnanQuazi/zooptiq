@@ -21,6 +21,10 @@ const bookingSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  storeImage: {
+    type: String,
+    required: true,
+  },
   address: {
     type: String,
     required: true,
@@ -46,10 +50,12 @@ const bookingSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true,
+    get: (val) => val.toFixed(2),
   },
   amountPaid: {
     type: Number,
     required: true,
+    get: (val) => val.toFixed(2),
   },
   paymentStatus: {
     type: String,
@@ -68,9 +74,10 @@ const bookingSchema = new mongoose.Schema({
       color: {
         type: String,
       },
-      price : {
-        type : Number,
-        requried : true
+      price: {
+        type: Number,
+        requried: true,
+        get: (val) => val.toFixed(2),
       },
       name: {
         type: String,

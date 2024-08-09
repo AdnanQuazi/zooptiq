@@ -13,6 +13,7 @@ const dummy = {
   businessType: "clothing",
   images: ["ok", "ok", "pk"],
   gst: "998877778888",
+
   products: [
     {
       name: "Rolex",
@@ -26,7 +27,75 @@ const dummy = {
     },
   ],
 };
+
+const variantSchema = new mongoose.Schema({
+  sharedImagePath: { type: String, required: true },
+  Images: [{ type: String, required: true }],
+  additionalFields: { type: mongoose.Schema.Types.Mixed }, // Allows any additional fields
+});
+
+const productSchema = new mongoose.Schema({
+  selectedVariations: { type: [String], required: true },
+  productName: { type: String, required: true },
+  brand: {
+    type: String,
+    required: true,
+    default: "Generic",
+  },
+  desc: {
+    type: String,
+    requried: true,
+    default: "",
+  },
+  category: {
+    type: String,
+    required: true,
+  },
+  subCategory: {
+    type: String,
+    required: true,
+  },
+  hasVariation: { type: String, required: true },
+  hsn: { type: String, required: true },
+  "GST rate slab": {
+    type: Number,
+  },
+  variants: [
+    {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+  ],
+  status: {
+    type: Boolean,
+    required: true,
+    default: true,
+  },
+  statusAdmin: {
+    type: Boolean,
+    requried: true,
+    default: true,
+  },
+  tags: [String],
+  reviews: {
+    averageRating: { type: Number, default: 0 },
+    numberOfReviews: { type: Number, default: 0 },
+  },
+  timestamps: {
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+});
+
 const businessSchema = new mongoose.Schema({
+  RZPaccountId: {
+    type: String,
+    required: true,
+  },
+  RZPproductId: {
+    type: String,
+    required: true,
+  },
   ownerName: {
     type: String,
     required: true,
@@ -166,68 +235,7 @@ const businessSchema = new mongoose.Schema({
       to: { type: String, required: true, default: "00:00" },
     },
   },
-  products: [
-    {
-      productName: {
-        type: String,
-        required: true,
-      },
-      desc: {
-        type: String,
-        requried: true,
-      },
-      category: {
-        type: String,
-        required: true,
-      },
-      subCategory: {
-        type: String,
-        required: true,
-      },
-      sizes: {
-        type: Object,
-      },
-      sizesFootwear: {
-        type: Object,
-      },
-      gender: {
-        type: String,
-      },
-      condition: { type: String, required: true },
-      brand: { type: String, default: "Generic" },
-      price: { type: Number, required: true },
-      MRP: { type: Number, reuired: true },
-      discount: { type: Number, default: 0 },
-      images: [String],
-      colors: [String],
-      hasVariation: {
-        type: Boolean,
-        requried: true,
-      },
-      variations: {
-        type: Object,
-      },
-      status: {
-        type: Boolean,
-        required: true,
-        default: true,
-      },
-      statusAdmin: {
-        type: Boolean,
-        requried: true,
-        default: true,
-      },
-      tags: [String],
-      reviews: {
-        averageRating: { type: Number, default: 0 },
-        numberOfReviews: { type: Number, default: 0 },
-      },
-      timestamps: {
-        createdAt: { type: Date, default: Date.now },
-        updatedAt: { type: Date, default: Date.now },
-      },
-    },
-  ],
+  products: [productSchema],
   bookings: [String],
   loyalty: [
     {

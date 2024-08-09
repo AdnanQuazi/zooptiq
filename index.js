@@ -29,10 +29,15 @@ const corsOptions = {
 };
 const { uploadOnCloudinary } = require("./cloudinary.js");
 const Razorpay = require("razorpay");
+const RZ_KEY_ID = process.env.RAZORPAY_KEY_ID_PROD;
+const RZ_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET_PROD;
 const razorpayInstance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID_PROD,
-  key_secret: process.env.RAZORPAY_KEY_SECRET_PROD,
+  key_id: RZ_KEY_ID,
+  key_secret: RZ_KEY_SECRET,
 });
+const RZ_CREDENTIALS = Buffer.from(`${RZ_KEY_ID}:${RZ_KEY_SECRET}`).toString(
+  "base64"
+);
 
 const UID = 40405678;
 app.use(cors(corsOptions));
@@ -243,6 +248,344 @@ const statesAndCities = {
   "West Bengal": ["Asansol", "Durgapur", "Howrah", "Kolkata", "Siliguri"],
 };
 const phoneRegex = /^(\+91|\+91\-|0)?[7896]\d{9}$/;
+const PRODUCT_FORM_CONFIG = {
+  Clothing: {
+    "Product Information": [
+      {
+        name: "productName",
+        label: "Product Name",
+        type: "text",
+        required: true,
+        schema: {
+          required: { value: true, message: "Product name is required" },
+          minLength: {
+            value: 2,
+            message: "Should be at least of 2 characters",
+          },
+          maxLength: {
+            value: 70,
+            message: "Maximum 70 characters are allowed",
+          },
+        },
+      },
+      {
+        name: "subCategory",
+        label: "Sub Category",
+        type: "text",
+        required: true,
+        schema: {
+          required: { value: true, message: "Sub Category is required" },
+          minLength: {
+            value: 2,
+            message: "Should be at least of 2 characters",
+          },
+          maxLength: {
+            value: 70,
+            message: "Maximum 70 characters are allowed",
+          },
+        },
+      },
+      {
+        name: "brand",
+        label: "Brand",
+        type: "text",
+        required: true,
+        schema: {
+          required: { value: true, message: "Brand name is required" },
+          minLength: {
+            value: 2,
+            message: "Should be at least of 2 characters",
+          },
+          maxLength: {
+            value: 70,
+            message: "Maximum 70 characters are allowed",
+          },
+        },
+      },
+      {
+        name: "MRP",
+        label: "MRP",
+        type: "number",
+        required: true,
+        schema: {
+          required: { value: true, message: "MRP is requried" },
+          min: { value: 1, message: "Minimum amount is Rs 1.00" },
+          max: { value: 100000, message: "Maximum amount is Rs 100000.00" },
+          valueAsNumber: true,
+        },
+      },
+      {
+        name: "sellingPrice",
+        label: "Selling Price",
+        type: "number",
+        required: true,
+        schema: {
+          required: { value: true, message: "Selling price is requried" },
+          min: { value: 1, message: "Minimum amount is Rs 1.00" },
+          max: { value: 100000, message: "Maximum amount is Rs 100000.00" },
+          valueAsNumber: true,
+        },
+      },
+    ],
+    "Variation Details": [
+      {
+        name: "hasVariation",
+        label: "Does this product have variations?",
+        type: "radio",
+        options: ["Yes", "No"],
+        rquired: true,
+        schema: {
+          required: { value: true, message: "Please choose an option" },
+        },
+      },
+      {
+        name: "selectedVariations",
+        label: "",
+        type: "checkbox",
+        options: ["Size", "Color", "MaterialType"],
+        required: false,
+        dependsOn: { field: "hasVariation", value: "Yes" },
+        validation: (getValues) => {
+          return {
+            validate: (value) => {
+              const shouldValidate = getValues("hasVariation");
+              if (shouldValidate === "Yes" && value.length < 1) {
+                return "At least select one variation";
+              }
+              return true;
+            },
+            deps: ["hasVariation"],
+          };
+        },
+      },
+      {
+        name: "variationSize",
+        label: "",
+        placeholder: "Size",
+        subType: "Text-Array",
+        type: "text",
+        requried: false,
+        dependsOn: { field: "selectedVariations", value: "Size" },
+      },
+      {
+        name: "variationColor",
+        label: "",
+        placeholder: "Color",
+        subType: "Text-Array",
+        type: "text",
+        requried: false,
+        dependsOn: { field: "selectedVariations", value: "Color" },
+      },
+      {
+        name: "variationMaterialType",
+        label: "",
+        placeholder: "Material Type",
+        subType: "Text-Array",
+        type: "text",
+        requried: false,
+        dependsOn: { field: "selectedVariations", value: "MaterialType" },
+      },
+    ],
+    Variations: {
+      Size: [
+        {
+          name: "Target Gender",
+          label: "Target Gender",
+          placeholder: "Target Gender",
+          type: "select",
+          options: ["Male", "Female", "Unisex"],
+          required: true,
+          schema: {
+            required: { value: true, message: "Please choose an option" },
+          },
+        },
+        {
+          name: "Size Age Group",
+          label: "Size Age Group",
+          placeholder: "Size Age Group",
+          type: "select",
+          options: ["Adult", "Big Kid", "Little Kid", "Toddler", "Infant"],
+          required: true,
+          schema: {
+            required: { value: true, message: "Please choose an option" },
+          },
+        },
+      ],
+      Color: [
+        {
+          name: "Color Map",
+          label: "Color Map",
+          placeholder: "Color Map",
+          type: "select",
+          options: ["Red", "Blue", "Green"],
+          required: true,
+          schema: {
+            required: { value: true, message: "Please choose an option" },
+          },
+        },
+      ],
+      Common: [
+        {
+          name: "Condition",
+          placeholder: "Condition",
+          label: "Condition",
+          type: "select",
+          options: ["New", "Used"],
+          required: true,
+          schema: {
+            required: { value: true, message: "Please choose an option" },
+          },
+        },
+        {
+          name: "SKU",
+          placeholder: "SKU",
+          label: "SKU",
+          type: "text",
+          required: true,
+          schema: {
+            required: { value: true, message: "SKU is requried" },
+          },
+        },
+        {
+          name: "MRP",
+          label: "MRP",
+          placeholder: "MRP",
+          type: "number",
+          required: true,
+          schema: {
+            required: { value: true, message: "MRP is requried" },
+            min: { value: 1, message: "Minimum amount is Rs 1.00" },
+            max: { value: 100000, message: "Maximum amount is Rs 100000.00" },
+            valueAsNumber: true,
+          },
+        },
+        {
+          name: "sellingPrice",
+          label: "Selling Price",
+          placeholder: "Selling Price",
+          type: "number",
+          required: true,
+          schema: {
+            required: { value: true, message: "Selling price is requried" },
+            min: { value: 1, message: "Minimum amount is Rs 1.00" },
+            max: { value: 100000, message: "Maximum amount is Rs 100000.00" },
+            valueAsNumber: true,
+          },
+        },
+        {
+          name: "Stock",
+          placeholder: "Stock",
+          label: "Stock",
+          type: "number",
+          required: true,
+          schema: {
+            required: { value: true, message: "Stock is requried" },
+            valueAsNumber: true,
+          },
+        },
+        {
+          name: "Images",
+          placeholder: "Product Image",
+          label: "Product Image",
+          type: "file",
+          accept: "image/*",
+          rquired: true,
+        },
+      ],
+    },
+    "Tax Details": [
+      {
+        name: "hsn",
+        label: "HSN",
+        type: "text",
+        requried: true,
+        schema: {
+          required: { value: true, message: "HSN code is required" },
+        },
+      },
+      {
+        name: "GST rate slab",
+        label: "GST rate slab %",
+        type: "select",
+        options: [0, 3, 5, 12, 18, 28],
+        requried: true,
+        schema: {
+          required: { value: true, message: "Please choose an option" },
+        },
+      },
+    ],
+  },
+  Footwear: {
+    fields: [
+      {
+        name: "productName",
+        label: "Product Name",
+        type: "text",
+        required: true,
+      },
+      { name: "price", label: "Price", type: "number", required: true },
+      {
+        name: "hasVariations",
+        label: "Does this product have variations?",
+        type: "radio",
+        options: ["Yes", "No"],
+        required: true,
+      },
+    ],
+    variationOptions: [
+      { name: "size", label: "Size", type: "checkbox", required: false },
+      { name: "color", label: "Color", type: "checkbox", required: false },
+      {
+        name: "materialType",
+        label: "Material Type",
+        type: "checkbox",
+        required: false,
+      },
+    ],
+
+    variationFields: {
+      size: {
+        name: "size",
+        label: "Size",
+        type: "select",
+        options: ["6", "7", "8", "9", "10"],
+        required: true,
+      },
+      color: {
+        name: "color",
+        label: "Color",
+        type: "select",
+        options: ["Red", "Blue", "Black"],
+        required: true,
+      },
+      materialType: {
+        name: "materialType",
+        label: "Material Type",
+        type: "select",
+        options: ["Leather", "Synthetic"],
+        required: true,
+      },
+      stock: { name: "stock", label: "Stock", type: "number", required: true },
+    },
+  },
+  "General Store": {
+    fields: [
+      {
+        name: "productName",
+        label: "Product Name",
+        type: "text",
+        required: true,
+      },
+      { name: "price", label: "Price", type: "number", required: true },
+      {
+        name: "description",
+        label: "Description",
+        type: "textarea",
+        required: false,
+      },
+    ],
+  },
+};
 const ONBOARD_FORM_CONFIG = {
   "Basic Information": [
     {
@@ -639,6 +982,11 @@ const fetchDataFromDB = async () => {
 // Fetch data initially and then at regular intervals (e.g., every 5 minutes)
 fetchDataFromDB();
 setInterval(fetchDataFromDB, 2 * 60 * 1000);
+
+function formatPrice(amount) {
+  // Convert the amount to a string with two decimal places
+  return amount.toFixed(2);
+}
 function addQuoteBeforeEachWord(str) {
   return str
     .trim()
@@ -1148,53 +1496,131 @@ app.get("/getProducts", auth, async (req, res, next) => {
     next(error);
   }
 });
-app.post(
-  "/addProduct",
-  auth,
-  upload.array("images", 11),
-  async (req, res, next) => {
+const processFilesAndMergeWithBody = async (files, body) => {
+  const uploadPromises = files.map(async (file) => {
+    const { fieldname, path } = file;
     try {
-      if (req.token && req.user.role === "merchant" && req.user.storeId) {
-        function toCapitalizedWords(str) {
-          return str
-            .trim() // Remove extra spaces at the beginning and end
-            .split(" ") // Split the string into words
-            .map(
-              (word) =>
-                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-            ) // Capitalize the first letter of each word
-            .join(" "); // Join the words back into a single string with spaces
-        }
+      const url = await uploadOnCloudinary(path);
+      // Store the URL in the structure matching fieldname
+      const keys = fieldname.match(/[^\[\]]+/g); // Extract keys from fieldname
+      keys.reduce((acc, key, index) => {
+        const isLastKey = index === keys.length - 1;
+        const isArrayIndex = !isNaN(key);
 
-        const body = req.body;
-        const files = req.files.map((file) => uploadOnCloudinary(file.path));
-        const uploadedUrls = await Promise.all(files);
-        const parsedData = {};
-
-        for (let key in body) {
-          parsedData[key] = JSON.parse(body[key]);
-        }
-        parsedData.colors = parsedData.colors.map((elem) =>
-          toCapitalizedWords(elem)
-        );
-
-        const product = await BusinessData.updateOne(
-          { _id: req.user.storeId },
-          { $push: { products: { ...parsedData, images: uploadedUrls } } }
-        );
-        if (product.acknowledged) {
-          res.status(200).send("Product Added Succesfully");
+        if (isLastKey) {
+          if (isArrayIndex) {
+            if (!Array.isArray(acc)) acc = [];
+            acc[Number(key)] = url;
+          } else {
+            acc[key] = url;
+          }
         } else {
-          res.status(500).send("Internal Server Error");
+          if (isArrayIndex) {
+            if (!acc[key]) acc[key] = [];
+            return acc[key];
+          } else {
+            if (!acc[key]) acc[key] = {};
+            return acc[key];
+          }
         }
-      } else {
-        res.status(401).send("Auth Failed");
-      }
+      }, body);
     } catch (error) {
-      next(error);
+      console.error(`Failed to upload file ${file.originalname}: `, error);
     }
+  });
+
+  await Promise.all(uploadPromises);
+
+  return body;
+};
+
+const getNestedValue = (obj, path) => {
+  return path.split('.').reduce((acc, part) => {
+    if (acc === undefined || acc === null) {
+      return undefined;
+    }
+    return isNaN(part) ? acc[part] : acc[parseInt(part, 10)];
+  }, obj);
+};
+
+app.get("/product/config", auth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      const {category} = req.query
+      res.status(200).send(PRODUCT_FORM_CONFIG[category]);
+    } else {
+      res.status(401).send("Unauthorized");
+    }
+  } catch (error) {
+    next(error);
   }
-);
+});
+
+
+app.post("/addProduct", auth, upload.any(), async (req, res, next) => {
+  try {
+    if (req.token && req.user.role === "merchant" && req.user.storeId) {
+      const productData = Object.assign(req.body);
+      if (!req.body.variants || !Array.isArray(req.body.variants)) {
+        req.body.variants = [];
+      } else {
+        req.body.variants = req.body.variants.map(variant => ({
+          ...variant,
+          Images: Array.isArray(variant.Images) ? variant.Images : []
+        }));
+      }
+      
+      const updatedBody = await processFilesAndMergeWithBody(req.files, req.body);
+      updatedBody.variants.forEach((variant,index)=> {
+        const path = variant.sharedImagePath;
+        updatedBody.variants[index]._id = new mongoose.Types.ObjectId()
+        if(path != "upload"){
+          const sharedImage = getNestedValue(updatedBody, path);
+          updatedBody.variants[index].Images = sharedImage
+          console.log(sharedImage);
+        }
+      }); 
+      
+      // function toCapitalizedWords(str) {
+      //   return str
+      //     .trim() // Remove extra spaces at the beginning and end
+      //     .split(" ") // Split the string into words
+      //     .map(
+      //       (word) =>
+      //         word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      //     ) // Capitalize the first letter of each word
+      //     .join(" "); // Join the words back into a single string with spaces
+      // }
+
+      // const body = req.body;
+      // const files = req.files.map((file) => uploadOnCloudinary(file.path));
+      // const uploadedUrls = await Promise.all(files);
+      // const parsedData = {};
+
+      // for (let key in body) {
+      //   parsedData[key] = JSON.parse(body[key]);
+      // }
+      // parsedData.colors = parsedData.colors.map((elem) =>
+      //   toCapitalizedWords(elem)
+      // );
+
+      const product = await BusinessData.updateOne(
+        { _id: req.user.storeId },
+        { $push: { products: {...updatedBody} } }
+      );
+
+      if (product.acknowledged) {
+        res.status(200).send("Product Added Succesfully");
+      } else {
+        res.status(500).send("Internal Server Error");
+      }
+    } else {
+      res.status(401).send("Auth Failed");
+    }
+  } catch (error) {
+    next(error);
+  }
+});
 app.put("/updateProduct", auth, async (req, res) => {
   try {
     if (req.token && req.user.role === "merchant" && req.user.storeId) {
@@ -1245,39 +1671,46 @@ app.get("/product", async (req, res, next) => {
 app.put(
   "/editProduct",
   auth,
-  upload.array("images", 11),
+  upload.any(),
   async (req, res, next) => {
     try {
       if (req.token && req.user.role === "merchant" && req.user.storeId) {
-        const body = req.body;
-        const parsedData = {};
-
-        for (let key in body) {
-          parsedData[key] = JSON.parse(body[key]);
+        if (!req.body.variants || !Array.isArray(req.body.variants)) {
+          req.body.variants = [];
+        } else {
+          req.body.variants = req.body.variants.map(variant => ({
+            ...variant,
+            NewImages: Array.isArray(variant.NewImages) ? variant.NewImages : []
+          }));
         }
-        console.log(req.files);
-        const files = req.files.map((file) => uploadOnCloudinary(file.path));
-        const uploadedUrls = await Promise.all(files);
 
-        const newFiles = [...parsedData.prevImages, ...uploadedUrls];
-        const filter = parsedData._id;
+        const updatedBody = await processFilesAndMergeWithBody(req.files, req.body);
+        console.log(updatedBody)
+        updatedBody.variants.forEach((variant,index)=> {
+          const path = variant.sharedImagePath;
+          if(variant.NewImages.length > 0){
+            updatedBody.variants[index].Images = [...variant.Images , ...variant.NewImages]
+            delete updatedBody.variants[index]["NewImages"]
+          }
+          if(path != "upload"){
+            const sharedImage = getNestedValue(updatedBody, path);
+            updatedBody.variants[index].Images = sharedImage
+          }
+        }); 
+        const filter = req.body._id;
         const update = {};
 
-        for (const [key, value] of Object.entries(parsedData)) {
-          if (key === "statusAdmin" || key === "prevImages") continue;
-          if (key === "images") {
-            update[`products.$[elem].${key}`] = newFiles;
-            continue;
-          }
+        for (const [key, value] of Object.entries(updatedBody)) {
+          if (key === "statusAdmin" || key === "_id") continue;
           update[`products.$[elem].${key}`] = value;
         }
         const result = await BusinessData.updateOne(
           { _id: req.user.storeId },
-          { $set: update },
+          { $set: update},
           { arrayFilters: [{ "elem._id": filter }] }
         );
         fetchDataFromDB();
-        res.status(200).send(true);
+        res.status(200).send(updatedBody);
       } else {
         res.status(401).send("Unauthorized");
       }
@@ -1763,16 +2196,18 @@ app.post("/create-order", auth, async (req, res, next) => {
       let filteredProducts;
       let matchedProducts = [];
       documents.forEach((doc) => {
-        filteredProducts = doc.products.filter(prod => idsC.includes(String(prod._id)))
-      })
-      Object.values(products).forEach(prod => {
-       for(const product of filteredProducts){
-        if(String(product._id) === prod.productId){
-          totalAmount += (product.price * prod.quantity)
-          break
+        filteredProducts = doc.products.filter((prod) =>
+          idsC.includes(String(prod._id))
+        );
+      });
+      Object.values(products).forEach((prod) => {
+        for (const product of filteredProducts) {
+          if (String(product._id) === prod.productId) {
+            totalAmount += product.price * prod.quantity;
+            break;
+          }
         }
-       }
-      })
+      });
       const amount = totalAmount;
 
       const options = {
@@ -1797,43 +2232,79 @@ app.post("/create-order", auth, async (req, res, next) => {
   }
 });
 
+app.post("/update-order-status", auth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      if (req.user.role === "merchant") {
+        const { status, orderId } = req.body;
+        const validStatuses = [
+          "Awaiting Confirmation",
+          "Ready for Pickup",
+          "Collected",
+        ];
+        if (!validStatuses.includes(status)) {
+          return res.status(400).send("Invalid order status");
+        }
+        const result = await BookingsData.findOneAndUpdate(
+          { orderId },
+          { orderStatus: status },
+          { new: true } // Return the updated document
+        );
 
-app.post("/get-orders" , auth , async(req,res,next) => {
-  try{  
-    if(req.token){
-      const { pageParam = 0 } = req.query
-      const bookings = await BookingsData.find({
-        orderId : { $in: req.user.bookings }
-      }).skip(pageParam).limit(PAGINATION_LIMIT);
-      res.send(bookings)
-    }else{
-      res.status(401).send("Unauthorized")
+        if (!result) {
+          res.status(404).send("Order not Found");
+        } else {
+          res.status(200).send("Success");
+        }
+      } else {
+        res.status(401).send("Unauthorized");
+      }
+    } else {
+      res.status(401).send("Unauthorized");
     }
-  }catch(error){
-    next(error)
+  } catch (error) {}
+});
+
+app.post("/get-orders", auth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      const { pageParam = 0 } = req.query;
+      const bookings = await BookingsData.find({
+        orderId: { $in: req.user.bookings },
+      })
+        .skip(pageParam - 1)
+        .limit(PAGINATION_LIMIT);
+      res.send(bookings);
+    } else {
+      res.status(401).send("Unauthorized");
+    }
+  } catch (error) {
+    next(error);
   }
-})
+});
 
-
-app.post("/get-merchant-orders" , auth , async(req,res,next) => {
-  try{  
-    if(req.token){
-      const { pageParam = 1 } = req.query
-      const findStore = await BusinessData.findById(req.user.storeId)
-      if(findStore.bookings.length < 1){
-        return res.status(200).send([])
+app.post("/get-merchant-orders", auth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      const { pageParam = 1 } = req.query;
+      const findStore = await BusinessData.findById(req.user.storeId);
+      if (findStore.bookings.length < 1) {
+        return res.status(200).send([]);
       }
       const bookings = await BookingsData.find({
-        orderId : { $in: findStore.bookings }
-      }).skip(pageParam - 1).limit(PAGINATION_LIMIT);
-      res.send(bookings)
-    }else{
-      res.status(401).send("Unauthorized")
+        orderId: { $in: findStore.bookings },
+      })
+        .sort({ bookingDateTime: -1 })
+        .skip(pageParam - 1)
+        .limit(20);
+      res.send(bookings);
+    } else {
+      res.status(401).send("Unauthorized");
     }
-  }catch(error){
-    next(error)
+  } catch (error) {
+    next(error);
   }
-})
+});
 
 app.post("/verify-payment", auth, async (req, res, next) => {
   try {
@@ -1877,23 +2348,24 @@ app.post("/verify-payment", auth, async (req, res, next) => {
         userEmail: userDetails.email,
         storeId: String(storeDetails._id),
         storeName: storeDetails.shopName,
+        storeImage: storeDetails.shopImage,
         address: storeDetails.address,
         contact: storeDetails.contactNumber,
         bookingDateTime: new Date().toISOString(),
         orderId: orderId,
         orderStatus: "Awaiting Confirmation",
-        amount: orderDetails.amount,
-        amountPaid: orderDetails.amount_paid,
+        amount: formatPrice(orderDetails.amount / 100),
+        amountPaid: formatPrice(orderDetails.amount_paid / 100),
         paymentStatus: "Completed",
-        products: productDetails.map(p => ({
+        products: productDetails.map((p) => ({
           productId: p.productId, // Assuming `productId` is in `productsData`
           size: p.size,
           color: p.color,
-          price : p.price,
+          price: formatPrice(p.price),
           name: p.productName,
           image: p.image,
           quantity: p.quantity, // Ensure `quantity` is present in `productsData`
-      })),
+        })),
       };
       const newBooking = new BookingsData(bookingData);
       const savedBooking = await newBooking.save({ session });
@@ -1923,10 +2395,10 @@ app.post("/verify-payment", auth, async (req, res, next) => {
       res.json({
         message: "Payment Successfull",
       });
-    }else{
+    } else {
       res.json({
-        message : "Payment Failed"
-      })
+        message: "Payment Failed",
+      });
     }
   } catch (error) {
     console.log(error);
@@ -1980,21 +2452,260 @@ app.post("/admin/login", async (req, res, next) => {
   }
 });
 
+app.post("/test-update-config", async (req, res) => {
+  try {
+    const data = {
+      settlements: {
+        account_number: "1234567890",
+        ifsc_code: "HDFC0000317",
+        beneficiary_name: "Gaurav Kumar",
+      },
+      tnc_accepted: true,
+    };
+
+    const response = await axios.patch(
+      "https://api.razorpay.com/v2/accounts/acc_ObKcc9axhiLu6a/products/acc_prd_ObKeOjoMrq9ELC/",
+      data,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${RZ_CREDENTIALS}`, // Correct format for Basic Auth
+        },
+      }
+    );
+    res.send(response.data);
+  } catch (error) {
+    res.send(error);
+  }
+});
+app.post("/test-config", async (req, res) => {
+  try {
+    const data = {
+      product_name: "route",
+      tnc_accepted: true,
+    };
+
+    const response = await axios.post(
+      "https://api.razorpay.com/v2/accounts/acc_ObKcc9axhiLu6a/products",
+      data,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${RZ_CREDENTIALS}`, // Correct format for Basic Auth
+        },
+      }
+    );
+    res.send(response.data);
+  } catch (error) {
+    res.send(error);
+  }
+});
+app.post("/test-stakeholder", async (req, res) => {
+  try {
+    const data = {
+      name: "Gaurav Kumar",
+      email: "gaurav.kumar234@example.com",
+    };
+    const response = await axios.post(
+      "https://api.razorpay.com/v2/accounts/acc_ObKcc9axhiLu6a/stakeholders",
+      data,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${RZ_CREDENTIALS}`, // Correct format for Basic Auth
+        },
+      }
+    );
+    res.send(response.data);
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+async function updateConfig(data, accountId, productId) {
+  const response = await axios.patch(
+    `https://api.razorpay.com/v2/accounts/${accountId}/products/${productId}/`,
+    data,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${RZ_CREDENTIALS}`, // Correct format for Basic Auth
+      },
+    }
+  );
+  return response.data;
+}
+
+async function createConfig(data, accountId) {
+  const response = await axios.post(
+    `https://api.razorpay.com/v2/accounts/${accountId}/products`,
+    data,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${RZ_CREDENTIALS}`, // Correct format for Basic Auth
+      },
+    }
+  );
+  return response.data;
+}
+
+async function createStakeholder(data, accountId) {
+  const response = await axios.post(
+    `https://api.razorpay.com/v2/accounts/${accountId}/stakeholders`,
+    data,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${RZ_CREDENTIALS}`, // Correct format for Basic Auth
+      },
+    }
+  );
+  return response.data;
+}
+
+async function createVendorId(data) {
+  const response = await axios.post(
+    "https://api.razorpay.com/v2/accounts",
+    data,
+    {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${RZ_CREDENTIALS}`, // Correct format for Basic Auth
+      },
+    }
+  );
+  return response.data;
+}
+
+app.post("/test-vendor-func", async (req, res) => {
+  try {
+    const dummyData = {
+      email: "test.user212@example.com",
+      phone: "9999999999",
+      type: "route",
+      reference_id: "test123322",
+      legal_business_name: "Test Corp 22",
+      business_type: "other",
+      contact_name: "John Doe",
+      profile: {
+        category: "ecommerce",
+        subcategory: "fashion_and_lifestyle",
+        addresses: {
+          registered: {
+            street1: "123 Test Street",
+            street2: "Suite 456",
+            city: "Mumbai",
+            state: "MAHARASHTRA",
+            postal_code: "400001",
+            country: "IN",
+          },
+        },
+      },
+    };
+
+    const stakeholderdata = {
+      name: "Gaurav Kumar",
+      email: "gaurav.kumar23224@example.com",
+    };
+    const configdata = {
+      product_name: "route",
+      tnc_accepted: true,
+    };
+    const updateconfigdata = {
+      settlements: {
+        account_number: "1234569870",
+        ifsc_code: "HDFC0000372",
+        beneficiary_name: "Gaurav",
+      },
+      tnc_accepted: true,
+    };
+
+    const createVendor = await createVendorId(dummyData);
+    const accountId = createVendor.id;
+
+    const stakeholder = await createStakeholder(stakeholderdata, accountId);
+
+    const config = await createConfig(configdata, accountId);
+    const productId = config.id;
+    console.log(productId);
+    const updatedConfig = await updateConfig(
+      updateconfigdata,
+      accountId,
+      productId
+    );
+
+    res.send(updatedConfig);
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+app.post("/test-vendor", async (req, res) => {
+  try {
+    const data = {
+      email: "gauravvv.kumar@example.com",
+      phone: "9000090000",
+      type: "route",
+      reference_id: "1241241",
+      legal_business_name: "Acme Corp",
+      business_type: "other",
+      contact_name: "Gaurav Kumar A",
+      profile: {
+        category: "ecommerce",
+        subcategory: "fashion_and_lifestyle",
+        addresses: {
+          registered: {
+            street1: "507, Koramangala 1st block",
+            street2: "MG Road",
+            city: "Bengaluru",
+            state: "KARNATAKA",
+            postal_code: "560034",
+            country: "IN",
+          },
+        },
+      },
+      legal_info: {
+        pan: "AAACL1234A",
+        gst: "18AABCU9603R1ZP",
+      },
+    };
+
+    const response = await axios.post(
+      "https://api.razorpay.com/v2/accounts",
+      data,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${RZ_CREDENTIALS}`, // Correct format for Basic Auth
+        },
+      }
+    );
+    res.send(response.data);
+  } catch (error) {
+    res.send(error);
+  }
+});
 app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
     if (req.token) {
       let storeId = req.body.storeId;
       if (!storeId) {
         res.status(400).send("Please provide store Id");
       } else {
-        storeId = ObjectId.createFromHexString(req.body.storeId);
+        storeId = ObjectId.createFromHexString(storeId);
+
         const approvedStore = await admin.findOneAndUpdate(
           { _id: req.admin.id },
           { $set: { "stores.$[elem].status": "approved" } },
-          { arrayFilters: [{ "elem._id": storeId }], new: true }
+          { arrayFilters: [{ "elem._id": storeId }], new: true, session }
         );
+
         if (approvedStore) {
           const {
+            _id,
             ownerName,
             shopName,
             shopImage,
@@ -2014,7 +2725,71 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
             userId,
           } = approvedStore.stores.find((elem) => elem._id.equals(storeId));
 
-          const insertStore = await new BusinessData({
+          const data = {
+            email: "gauraasdddavvv.kumar@example.com",
+            phone: "9000090000",
+            type: "route",
+            reference_id: "1241241d131231",
+            legal_business_name: "Acme Corp",
+            business_type: "other",
+            contact_name: "Gaurav Kumar A",
+            profile: {
+              category: "ecommerce",
+              subcategory: "fashion_and_lifestyle",
+              addresses: {
+                registered: {
+                  street1: "507, Koramangala 1st block",
+                  street2: "MG Road",
+                  city: "Bengaluru",
+                  state: "KARNATAKA",
+                  postal_code: "560034",
+                  country: "IN",
+                },
+              },
+            },
+            legal_info: {
+              pan: "AAACL1234A",
+              gst: "18AABCU9603R1ZP",
+            },
+          };
+
+          const stakeholderdata = {
+            name: ownerName,
+            email: email,
+          };
+          const configdata = {
+            product_name: "route",
+            tnc_accepted: true,
+          };
+          const updateconfigdata = {
+            settlements: {
+              account_number: bankaccount.number,
+              ifsc_code: bankaccount.ifsc,
+              beneficiary_name: ownerName,
+            },
+            tnc_accepted: true,
+          };
+
+          const createVendor = await createVendorId(data);
+          const accountId = createVendor.id;
+
+          const stakeholder = await createStakeholder(
+            stakeholderdata,
+            accountId
+          );
+
+          const config = await createConfig(configdata, accountId);
+          const productId = config.id;
+          console.log(productId);
+          const updatedConfig = await updateConfig(
+            updateconfigdata,
+            accountId,
+            productId
+          );
+          console.log(updatedConfig);
+          const newStore = await new BusinessData({
+            RZPaccountId: accountId,
+            RZPproductId: productId,
             ownerName,
             shopName,
             shopImage,
@@ -2033,8 +2808,8 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
               type: "Point",
               coordinates: [latitude, longitude],
             },
-          });
-          const newStore = await insertStore.save();
+          }).save({ session });
+
           const updateUser = await UserData.updateOne(
             { _id: userId },
             {
@@ -2043,10 +2818,14 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
                 role: "merchant",
                 storeId: newStore._id,
               },
-            }
+            },
+            { session }
           );
 
           if (updateUser.modifiedCount === 1) {
+            await session.commitTransaction();
+            session.endSession();
+
             transporter
               .sendMail({
                 from: "Zooptick <zooptickofficial@gmail.com>",
@@ -2067,8 +2846,8 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
          <div style="text-align: center; margin-top: 50px;">
             <img src="https://www.zooptick.com/assets/zooptickWhite-CxScf5Y4.svg" alt="Zooptick Image" width="250" height="50" style="display: inline-block;">
         </div>
-        
-    </div>`,
+         
+    </div>`,
               })
               .then(() => {
                 res.status(200).send("Approved Successfully");
@@ -2077,14 +2856,23 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
                 res.status(500).send(err);
               });
           } else {
+            await session.abortTransaction();
+            session.endSession();
             res.status(500).send("Something went wrong");
           }
+        } else {
+          await session.abortTransaction();
+          session.endSession();
+          res.status(500).send("Store approval failed");
         }
       }
     } else {
       res.status(401).send("Unauthorized");
     }
   } catch (error) {
+    console.log(error);
+    await session.abortTransaction();
+    session.endSession();
     next(error);
   }
 });
@@ -2165,6 +2953,7 @@ app.get("/location", async (req, res, next) => {
     } = await axios.get(
       `https://api.olamaps.io/places/v1/reverse-geocode?latlng=${lat},${long}&api_key=QZQMlxb9q6t1AefOegtt4Ck8d4oTi3kUf5X34TPE`
     );
+    console.log(results);
     const addressComponents = results[1].address_components;
     const formateddAddress = results[1].formatted_address;
 
@@ -2193,6 +2982,7 @@ app.get("/location", async (req, res, next) => {
     res.status(200).send({
       address: formateddAddress,
       city: locality,
+      street: combinedString,
     });
   } catch (error) {
     next(error);
