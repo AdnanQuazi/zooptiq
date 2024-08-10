@@ -47,6 +47,12 @@ const productSchema = new mongoose.Schema({
     requried: true,
     default: "",
   },
+  MRP : {
+    type : Number
+  },
+  sellingPrice : {
+    type : Number
+  },
   category: {
     type: String,
     required: true,

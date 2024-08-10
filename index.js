@@ -14,6 +14,7 @@ const Fuse = require("fuse.js");
 const app = express();
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
+const { Decimal128 } = mongoose.Types;
 const crypto = require("crypto");
 const { ObjectId } = mongoose.Types;
 const port = process.env.PORT || 3000;
@@ -987,6 +988,16 @@ function formatPrice(amount) {
   // Convert the amount to a string with two decimal places
   return amount.toFixed(2);
 }
+function generateOrderId(prefix = 'order_', length = 14) {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let randomString = '';
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    randomString += characters[randomIndex];
+  }
+  return prefix + randomString;
+}
+
 function addQuoteBeforeEachWord(str) {
   return str
     .trim()
@@ -1574,6 +1585,10 @@ app.post("/addProduct", auth, upload.any(), async (req, res, next) => {
       updatedBody.variants.forEach((variant,index)=> {
         const path = variant.sharedImagePath;
         updatedBody.variants[index]._id = new mongoose.Types.ObjectId()
+        const MRP = parseFloat(variant.MRP).toFixed(2);
+        const sellingPrice = parseFloat(variant.sellingPrice).toFixed(2);
+        updatedBody.variants[index].MRP = MRP
+        updatedBody.variants[index].sellingPrice = sellingPrice
         if(path != "upload"){
           const sharedImage = getNestedValue(updatedBody, path);
           updatedBody.variants[index].Images = sharedImage
@@ -2182,8 +2197,10 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
 app.post("/create-order", auth, async (req, res, next) => {
   try {
     if (req.token) {
+      const products = req.body.products
+      const variantIds = Object.values(products).map(item => ObjectId.createFromHexString(item.variantId));;
       let totalAmount = 0;
-      const products = req.body.products;
+      let tax = 0;
       const ids = Object.values(products).map((p) =>
         ObjectId.createFromHexString(p.productId)
       );
@@ -2203,13 +2220,18 @@ app.post("/create-order", auth, async (req, res, next) => {
       Object.values(products).forEach((prod) => {
         for (const product of filteredProducts) {
           if (String(product._id) === prod.productId) {
-            totalAmount += product.price * prod.quantity;
+            for(const variant of product.variants){
+                if(String(variant._id) === prod.variantId){
+                  totalAmount += variant.sellingPrice * prod.quantity;
+                  tax += ((variant.sellingPrice * prod.quantity) * product["GST rate slab"]) / 100
+                  break;
+                }
+            }
             break;
           }
         }
       });
-      const amount = totalAmount;
-
+      const amount = parseFloat((totalAmount + tax)).toFixed(2);
       const options = {
         amount: Number(amount * 100),
         currency: "INR",
@@ -2305,7 +2327,111 @@ app.post("/get-merchant-orders", auth, async (req, res, next) => {
     next(error);
   }
 });
+app.post("/cop-order" , auth , async(req,res,next) => {
+  try{
+    if(req.token){
+      const products = req.body.products
+      const variantIds = Object.values(products).map(item => ObjectId.createFromHexString(item.variantId));;
+      let totalAmount = 0;
+      let tax = 0;
+      const ids = Object.values(products).map((p) =>
+        ObjectId.createFromHexString(p.productId)
+      );
+      const idsC = Object.values(products).map((p) => p.productId);
+      // Fetch documents containing the products
+      const documents = await BusinessData.find({
+        "products._id": { $in: ids },
+      }).lean();
+      // Extract matched products
+      let filteredProducts;
+      let matchedProducts = [];
+      documents.forEach((doc) => {
+        filteredProducts = doc.products.filter((prod) =>
+          idsC.includes(String(prod._id))
+        );
+      });
+      Object.values(products).forEach((prod) => {
+        for (const product of filteredProducts) {
+          if (String(product._id) === prod.productId) {
+            for(const variant of product.variants){
+                if(String(variant._id) === prod.variantId){
+                  totalAmount += variant.sellingPrice * prod.quantity;
+                  tax += ((variant.sellingPrice * prod.quantity) * product["GST rate slab"]) / 100
+                  break;
+                }
+            }
+            break;
+          }
+        }
+      });
+      const amount = parseFloat((totalAmount + tax)).toFixed(2);
 
+      const productDetails = Object.values(products).map((p) => p);
+      const userDetails = req.user;
+      const storeDetails = await BusinessData.findOne({
+        "products._id": productDetails[0].productId,
+      }).lean();
+      const session = await mongoose.startSession();
+      session.startTransaction();
+      console.log(productDetails)
+      const bookingData = {
+        userId: userDetails.id,
+        userName: userDetails.name,
+        userEmail: userDetails.email,
+        storeId: String(storeDetails._id),
+        storeName: storeDetails.shopName,
+        storeImage: storeDetails.shopImage,
+        address: storeDetails.address,
+        contact: storeDetails.contactNumber,
+        bookingDateTime: new Date().toISOString(),
+        orderId: generateOrderId(),
+        orderStatus: "Awaiting Confirmation",
+        amount,
+        amountPaid: 0,
+        paymentStatus: "Pending",
+        paymentMode : "Cash On Point",
+        products: productDetails.map((p) => ({
+          productId: p.productId,
+          variant : {...p.variant},
+          price: p.price,
+          SGST : (((p.price * p.quantity) * (p.tax / 2)) / 100).toFixed(2),
+          CGST : (((p.price * p.quantity) * (p.tax / 2)) / 100).toFixed(2),
+          tax : p.tax,
+          totalTax : (((p.price * p.quantity) * p.tax) / 100).toFixed(2),
+          grandTotal : ((p.price * p.quantity) + (((p.price * p.quantity) * p.tax) / 100)).toFixed(2),
+          name: p.productName,
+          image: p.image,
+          quantity: p.quantity,
+        })),
+      };
+      const newBooking = new BookingsData(bookingData);
+      const savedBooking = await newBooking.save({ session });
+
+      await UserData.findByIdAndUpdate(
+        { _id: userDetails.id },
+        { $push: { bookings: savedBooking.orderId } },
+        { new: true, session }
+      );
+      await BusinessData.findOneAndUpdate(
+        { _id: String(storeDetails._id) },
+        { $push: { bookings: savedBooking.orderId } },
+        { new: true, session }
+      );
+
+      await session.commitTransaction();
+      session.endSession();
+      res.json({
+        message: "Order Successfull",
+      });
+
+    }    
+  }catch(error){
+ console.log(error);
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({ message: "Internal Server Error!" });
+  }
+})
 app.post("/verify-payment", auth, async (req, res, next) => {
   try {
     const {
@@ -2356,15 +2482,20 @@ app.post("/verify-payment", auth, async (req, res, next) => {
         orderStatus: "Awaiting Confirmation",
         amount: formatPrice(orderDetails.amount / 100),
         amountPaid: formatPrice(orderDetails.amount_paid / 100),
+        paymentMode : "Prepaid",
         paymentStatus: "Completed",
         products: productDetails.map((p) => ({
-          productId: p.productId, // Assuming `productId` is in `productsData`
-          size: p.size,
-          color: p.color,
-          price: formatPrice(p.price),
+          productId: p.productId,
+          variant : {...p.variant},
+          price: p.price,
+          SGST : (((p.price * p.quantity) * (p.tax / 2)) / 100).toFixed(2),
+          CGST : (((p.price * p.quantity) * (p.tax / 2)) / 100).toFixed(2),
+          tax : p.tax,
+          totalTax : (((p.price * p.quantity) * p.tax) / 100).toFixed(2),
+          grandTotal : ((p.price * p.quantity) + (((p.price * p.quantity) * p.tax) / 100)).toFixed(2),
           name: p.productName,
           image: p.image,
-          quantity: p.quantity, // Ensure `quantity` is present in `productsData`
+          quantity: p.quantity,
         })),
       };
       const newBooking = new BookingsData(bookingData);

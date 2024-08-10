@@ -50,12 +50,15 @@ const bookingSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true,
-    get: (val) => val.toFixed(2),
   },
   amountPaid: {
     type: Number,
     required: true,
-    get: (val) => val.toFixed(2),
+  },
+  paymentMode: {
+    type: String,
+    required: true,
+    enum: ["Prepaid","Cash On Point"],
   },
   paymentStatus: {
     type: String,
@@ -68,16 +71,32 @@ const bookingSchema = new mongoose.Schema({
         type: String,
         required: true,
       },
-      size: {
-        type: String,
-      },
-      color: {
-        type: String,
+      variant : {
+        type : mongoose.Schema.Types.Mixed 
       },
       price: {
+        type: String,
+        requried: true,
+      },
+      tax: {
         type: Number,
         requried: true,
-        get: (val) => val.toFixed(2),
+      },
+      totalTax: {
+        type: String,
+        requried: true,
+      },
+      SGST: {
+        type: String,
+        requried: true,
+      },
+      CGST: {
+        type: String,
+        requried: true,
+      },
+      grandTotal : {
+        type : String,
+        required : true
       },
       name: {
         type: String,
