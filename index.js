@@ -1491,7 +1491,9 @@ app.get("/getProducts", auth, async (req, res, next) => {
         (a, b) => b.reviews.averageRating - a.reviews.averageRating
       );
     }
-
+    if(mode === "merchant"){
+      finalResult = finalResult.sort((a, b) => new Date(b.timestamps.updatedAt) - new Date(a.timestamps.updatedAt))
+    }
     const data = finalResult.slice(skip, limit);
 
     res.status(200).json({
@@ -1587,8 +1589,11 @@ app.post("/addProduct", auth, upload.any(), async (req, res, next) => {
         updatedBody.variants[index]._id = new mongoose.Types.ObjectId()
         const MRP = parseFloat(variant.MRP).toFixed(2);
         const sellingPrice = parseFloat(variant.sellingPrice).toFixed(2);
+        const inclusiveTax = parseFloat((variant.sellingPrice * updatedBody["GST rate slab"]) / 100).toFixed(2);
+
         updatedBody.variants[index].MRP = MRP
         updatedBody.variants[index].sellingPrice = sellingPrice
+        updatedBody.variants[index].inclusiveTax = inclusiveTax
         if(path != "upload"){
           const sharedImage = getNestedValue(updatedBody, path);
           updatedBody.variants[index].Images = sharedImage
@@ -1703,6 +1708,9 @@ app.put(
         console.log(updatedBody)
         updatedBody.variants.forEach((variant,index)=> {
           const path = variant.sharedImagePath;
+          const inclusiveTax = parseFloat((sellingPrice * variant.tax) / 100).toFixed(2);
+          updatedBody.variants[index].inclusiveTax = inclusiveTax
+
           if(variant.NewImages.length > 0){
             updatedBody.variants[index].Images = [...variant.Images , ...variant.NewImages]
             delete updatedBody.variants[index]["NewImages"]
