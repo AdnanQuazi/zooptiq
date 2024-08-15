@@ -1737,14 +1737,22 @@ app.get("/product", async (req, res, next) => {
 
     const result = await BusinessData.findOne(
       { "products._id": productId },
-      { "products.$": 1 }
-    );
-
+      { "products.$": 1 , "shopName" : 1 , _id : 1 , address : 1 , contactNumber : 1 , shopImage : 1 , shopLogo : 1},
+    ).lean();
+    console.log(result)
     if (!result || result.products.length === 0) {
       return res.status(404).json({ error: "Product not found" });
     }
-
-    res.status(200).json(result.products[0]);
+    const response = {
+      ...result.products[0],
+      storeId: result._id,  // Assign _id to storeId
+      shopName: result.shopName,
+      address: result.address,
+      contactNumber: result.contactNumber,
+      shopImage: result.shopImage,
+      shopLogo: result.shopLogo,
+    };
+    res.status(200).json(response);
   } catch (error) {
     next(error);
   }
@@ -1769,7 +1777,12 @@ app.put(
         console.log(updatedBody)
         updatedBody.variants.forEach((variant,index)=> {
           const path = variant.sharedImagePath;
-          const inclusiveTax = parseFloat((sellingPrice * variant.tax) / 100).toFixed(2);
+          const MRP = parseFloat(variant.MRP).toFixed(2);
+          const sellingPrice = parseFloat(variant.sellingPrice).toFixed(2);
+          const inclusiveTax = parseFloat((variant.sellingPrice * updatedBody["GST rate slab"]) / 100).toFixed(2);
+
+          updatedBody.variants[index].MRP = MRP
+          updatedBody.variants[index].sellingPrice = sellingPrice
           updatedBody.variants[index].inclusiveTax = inclusiveTax
 
           if(variant.NewImages.length > 0){
