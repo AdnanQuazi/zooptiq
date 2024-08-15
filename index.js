@@ -710,7 +710,7 @@ const ONBOARD_FORM_CONFIG = {
       },
     },
     {
-      name: "onGoogleMaps",
+      name: "onGoogleMaps*",
       label: "Is your store listed on google maps?*",
       type: "radio",
       options: ["Yes", "No"],
@@ -750,7 +750,7 @@ const ONBOARD_FORM_CONFIG = {
     "PAN DETAILS": [
       {
         name: "PANcard.number",
-        label: "PAN number",
+        label: "PAN number*",
         type: "text",
         required: true,
         schema: {
@@ -763,7 +763,7 @@ const ONBOARD_FORM_CONFIG = {
       },
       {
         name: "PANcard.image",
-        label: "PAN image",
+        label: "PAN image*",
         type: "file",
         accept: "image/*",
         required: true,
@@ -778,7 +778,7 @@ const ONBOARD_FORM_CONFIG = {
     "AADHAAR CARD DETAILS": [
       {
         name: "aadhaarcard.number",
-        label: "Aadhaar number",
+        label: "Aadhaar number*",
         type: "number",
         required: true,
         schema: {
@@ -791,7 +791,7 @@ const ONBOARD_FORM_CONFIG = {
       },
       {
         name: "aadhaarcard.image",
-        label: "Aadhaar card image",
+        label: "Aadhaar card image*",
         type: "file",
         accept: "image/*",
         required: true,
@@ -808,13 +808,13 @@ const ONBOARD_FORM_CONFIG = {
         name: "gst.number",
         label: "GST number",
         type: "text",
-        required: true,
+        required: false,
         schema: {
           dataType: {
             condition: "string",
             error: "It must only contain letters",
           },
-          required: { condition: true, error: "GST number is required" },
+          required: { condition: false, error: "GST number is required" },
         },
       },
       {
@@ -822,13 +822,13 @@ const ONBOARD_FORM_CONFIG = {
         label: "GST certificate image",
         type: "file",
         accept: "image/*",
-        required: true,
+        required: false,
         schema: {
           dataType: {
             condition: "mixed",
           },
           required: {
-            condition: true,
+            condition: false,
             error: "GST certiificate image is required",
           },
         },
@@ -837,7 +837,7 @@ const ONBOARD_FORM_CONFIG = {
     "BANK ACCOUNT DETAILS": [
       {
         name: "bankaccount.number",
-        label: "Bank account number",
+        label: "Bank account number*",
         type: "text",
         required: true,
         schema: {
@@ -853,7 +853,7 @@ const ONBOARD_FORM_CONFIG = {
       },
       {
         name: "bankaccount.ifsc",
-        label: "IFSC code",
+        label: "IFSC code*",
         type: "text",
         required: true,
         schema: {
@@ -869,7 +869,7 @@ const ONBOARD_FORM_CONFIG = {
       },
       {
         name: "bankaccount.type",
-        label: "Bank account type",
+        label: "Bank account type*",
         type: "select",
         options: ["Savings", "Current"],
         required: true,
@@ -879,7 +879,7 @@ const ONBOARD_FORM_CONFIG = {
       },
       {
         name: "bankaccount.image",
-        label: "Passbook image",
+        label: "Passbook image*",
         type: "file",
         accept: "image/*",
         required: true,
@@ -1332,6 +1332,67 @@ const getProductsWithinDistance = (userLat, userLon, products, maxDistance) => {
     return distance <= maxDistance;
   });
 };
+function isStoreOpen(timings) {
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  
+  // Get the current local time
+  const now = new Date();
+  
+  // Convert current local time to IST (UTC+5:30)
+  const utcOffset = now.getTimezoneOffset() * 60000; // Offset in milliseconds
+  const istOffset = 5.5 * 60 * 60000; // IST is UTC+5:30
+  const istTime = new Date(now.getTime() + utcOffset + istOffset);
+
+  const dayName = days[istTime.getDay()];
+  const currentDayTiming = timings[dayName];
+
+  if (!currentDayTiming.status) {
+    return false; // The store is closed today.
+  }
+
+  // Convert current time to minutes since midnight
+  const currentMinutes = istTime.getHours() * 60 + istTime.getMinutes();
+  
+  // Convert store opening and closing times to minutes since midnight
+  const [fromHours, fromMinutes] = currentDayTiming.from.split(':').map(Number);
+  const fromMinutesTotal = fromHours * 60 + fromMinutes;
+
+  const [toHours, toMinutes] = currentDayTiming.to.split(':').map(Number);
+  const toMinutesTotal = toHours * 60 + toMinutes;
+  
+  // Check if the current time is within the store's open hours
+  if (fromMinutesTotal <= currentMinutes && currentMinutes < toMinutesTotal) {
+    return true; // The store is open now.
+  }
+
+  return false; // The store is closed now.
+}
+
+app.get("/search-stores" , async(req,res,next) => {
+  try{
+    const {search} = req.query
+    if(!search) res.status(404).send({message : "No store found"})
+    const options = {
+      includeScore: true,
+      shouldSort: true,
+      useExtendedSearch: true,
+      keys: [{ name: "shopName", weight: 3 }],
+    };
+    const fuse = new Fuse(collections, options);
+    let modifiedString = addQuoteBeforeEachWord(search);
+    const result = fuse.search({
+      $or: [
+        { shopName: modifiedString },
+        { shopName: search },
+      ],
+    });
+    console.log(result[0].item.location.coordinates)
+    let stores = result.map(({ item: { shopName, shopLogo , shopImage , address , contactNumber , timings , location , _id} }) => ({ _id , shopName, shopLogo , shopImage , address , contactNumber , storeOpen : isStoreOpen(timings) , location : location.coordinates}))
+    res.send(stores)
+  }catch(error){
+    next(error)
+  }
+})
 
 app.get("/getProducts", auth, async (req, res, next) => {
   try {
@@ -1793,6 +1854,9 @@ app.post("/get-store-name", async (req, res, next) => {
       soldBy: findStore.shopName,
       shopImage: findStore.shopImage,
       shopLogo: findStore.shopLogo,
+      address : findStore.address,
+      contactNumber : findStore.contactNumber,
+      timings : findStore.timings
     });
   } catch (error) {
     next(error);
@@ -2841,7 +2905,6 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
           { $set: { "stores.$[elem].status": "approved" } },
           { arrayFilters: [{ "elem._id": storeId }], new: true, session }
         );
-
         if (approvedStore) {
           const {
             _id,
@@ -2863,32 +2926,28 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
             longitude,
             userId,
           } = approvedStore.stores.find((elem) => elem._id.equals(storeId));
-
+          console.log(ownerName)
           const data = {
-            email: "gauraasdddavvv.kumar@example.com",
-            phone: "9000090000",
+            email: email,
+            phone: contactNumber,
             type: "route",
-            reference_id: "1241241d131231",
-            legal_business_name: "Acme Corp",
+            reference_id: String(_id).slice(-10),
+            legal_business_name: shopName,
             business_type: "other",
-            contact_name: "Gaurav Kumar A",
+            contact_name: ownerName,
             profile: {
               category: "ecommerce",
               subcategory: "fashion_and_lifestyle",
               addresses: {
                 registered: {
-                  street1: "507, Koramangala 1st block",
-                  street2: "MG Road",
-                  city: "Bengaluru",
-                  state: "KARNATAKA",
-                  postal_code: "560034",
+                  street1: address,
+                  street2: address,
+                  city: city,
+                  state: state,
+                  postal_code: "440012",
                   country: "IN",
                 },
               },
-            },
-            legal_info: {
-              pan: "AAACL1234A",
-              gst: "18AABCU9603R1ZP",
             },
           };
 
@@ -3009,7 +3068,8 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
       res.status(401).send("Unauthorized");
     }
   } catch (error) {
-    console.log(error);
+    console.log(error)
+    console.log(error?.response?.data?.error);
     await session.abortTransaction();
     session.endSession();
     next(error);

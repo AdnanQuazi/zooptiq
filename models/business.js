@@ -179,11 +179,9 @@ const businessSchema = new mongoose.Schema({
   gst: {
     number: {
       type: String,
-      requried: true,
     },
     image: {
       type: String,
-      required: true,
     },
   },
   bankaccount: {
