@@ -24,6 +24,7 @@ const corsOptions = {
     "https://zooptiq.vercel.app",
     "https://www.zooptick.com",
     "https://www.zooptick.in",
+    "https://zooptiq-adnan-quazis-projects.vercel.app/"
   ],
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,
@@ -1231,6 +1232,7 @@ app.post("/login", async (req, res, next) => {
         res.cookie("jwt", token, {
           expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           httpOnly: true,
+          SameSite : None
         });
         res.status(200).send("Login Successfull");
       } else {
