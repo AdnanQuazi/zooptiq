@@ -988,16 +988,24 @@ function formatPrice(amount) {
   // Convert the amount to a string with two decimal places
   return amount.toFixed(2);
 }
-function generateOrderId(prefix = 'order_', length = 14) {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let randomString = '';
+function generateOrderId(prefix = "order_", length = 14) {
+  const characters =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let randomString = "";
   for (let i = 0; i < length; i++) {
     const randomIndex = Math.floor(Math.random() * characters.length);
     randomString += characters[randomIndex];
   }
   return prefix + randomString;
 }
-
+function capitalizeEachWord(str) {
+  return str
+    .split(" ") // Split the string into words
+    .map(
+      (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() // Capitalize the first letter and lowercase the rest
+    )
+    .join(" "); // Join the words back into a single string
+}
 function addQuoteBeforeEachWord(str) {
   return str
     .trim()
@@ -1334,10 +1342,10 @@ const getProductsWithinDistance = (userLat, userLon, products, maxDistance) => {
 };
 function isStoreOpen(timings) {
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  
+
   // Get the current local time
   const now = new Date();
-  
+
   // Convert current local time to IST (UTC+5:30)
   const utcOffset = now.getTimezoneOffset() * 60000; // Offset in milliseconds
   const istOffset = 5.5 * 60 * 60000; // IST is UTC+5:30
@@ -1352,14 +1360,14 @@ function isStoreOpen(timings) {
 
   // Convert current time to minutes since midnight
   const currentMinutes = istTime.getHours() * 60 + istTime.getMinutes();
-  
+
   // Convert store opening and closing times to minutes since midnight
-  const [fromHours, fromMinutes] = currentDayTiming.from.split(':').map(Number);
+  const [fromHours, fromMinutes] = currentDayTiming.from.split(":").map(Number);
   const fromMinutesTotal = fromHours * 60 + fromMinutes;
 
-  const [toHours, toMinutes] = currentDayTiming.to.split(':').map(Number);
+  const [toHours, toMinutes] = currentDayTiming.to.split(":").map(Number);
   const toMinutesTotal = toHours * 60 + toMinutes;
-  
+
   // Check if the current time is within the store's open hours
   if (fromMinutesTotal <= currentMinutes && currentMinutes < toMinutesTotal) {
     return true; // The store is open now.
@@ -1368,10 +1376,10 @@ function isStoreOpen(timings) {
   return false; // The store is closed now.
 }
 
-app.get("/search-stores" , async(req,res,next) => {
-  try{
-    const {search} = req.query
-    if(!search) res.status(404).send({message : "No store found"})
+app.get("/search-stores", async (req, res, next) => {
+  try {
+    const { search } = req.query;
+    if (!search) res.status(404).send({ message: "No store found" });
     const options = {
       includeScore: true,
       shouldSort: true,
@@ -1381,18 +1389,124 @@ app.get("/search-stores" , async(req,res,next) => {
     const fuse = new Fuse(collections, options);
     let modifiedString = addQuoteBeforeEachWord(search);
     const result = fuse.search({
-      $or: [
-        { shopName: modifiedString },
-        { shopName: search },
-      ],
+      $or: [{ shopName: modifiedString }, { shopName: search }],
     });
-    console.log(result[0].item.location.coordinates)
-    let stores = result.map(({ item: { shopName, shopLogo , shopImage , address , contactNumber , timings , location , _id} }) => ({ _id , shopName, shopLogo , shopImage , address , contactNumber , storeOpen : isStoreOpen(timings) , location : location.coordinates}))
-    res.send(stores)
-  }catch(error){
-    next(error)
+    console.log(result[0].item.location.coordinates);
+    let stores = result.map(
+      ({
+        item: {
+          shopName,
+          shopLogo,
+          shopImage,
+          address,
+          contactNumber,
+          timings,
+          location,
+          _id,
+        },
+      }) => ({
+        _id,
+        shopName,
+        shopLogo,
+        shopImage,
+        address,
+        contactNumber,
+        storeOpen: isStoreOpen(timings),
+        location: location.coordinates,
+      })
+    );
+    res.send(stores);
+  } catch (error) {
+    next(error);
   }
-})
+});
+app.get("/inventory", auth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      if(!req.query.search){
+        const PAGINATION_LIMIT = 15;
+        const { pageParam } = req.query;
+        const page = parseInt(pageParam) || 1; // Default to page 1 if pageParam is not provided
+        const skip = (page - 1) * PAGINATION_LIMIT;
+        let limit = skip + PAGINATION_LIMIT;
+        // Fetch the user's document and paginate the products array
+        let userDocument = await BusinessData.findOne(
+          { _id: req.user.storeId },
+          { products: 1 } // Retrieve the entire products array
+        ).exec();
+        if (!userDocument) {
+          return res.status(404).send("No products found");
+        }
+        userDocument = userDocument.products.sort(
+          (a, b) =>
+            new Date(b.timestamps.updatedAt) - new Date(a.timestamps.updatedAt)
+        );
+        
+        let paginatedResults = userDocument.slice(skip, skip + PAGINATION_LIMIT)
+  
+        res
+          .status(200)
+          .json({
+            products: paginatedResults,
+            nextPage: limit >= userDocument.length ? undefined : page + 1,
+          });
+      }else{
+        let search = req.query.search
+        let result = await BusinessData.find({
+          _id: req.user.storeId,
+          $or: [
+            { "products.variants.SKU": { $regex: search, $options: 'i' } },
+            { "products.productName": { $regex: search, $options: 'i' } }
+          ]
+        }).lean();
+        if(result.length < 1){
+         return res.status(200).send([])
+        }
+        console.log(result)
+        const filteredProducts = result[0].products.filter(product => {
+          // Check if productId matches
+          const isProductIdMatch = new RegExp(search, 'i').test(product.productName);
+
+          // Check if any variant SKU matches
+          const isSkuMatch = product.variants.some(variant =>
+            new RegExp(search, 'i').test(variant.SKU)
+          );
+          return isProductIdMatch || isSkuMatch;
+        });
+
+        res.status(200).send(filteredProducts)
+      }
+    
+    } else {
+      res.status(401).send("Unauthorized");
+    }
+  } catch (error) {
+    next(error); // Pass the error to the next middleware for handling
+  }
+});
+app.post("/update-stock", auth, async (req, res) => {
+  try {
+    if (req.token && req.user.role === "merchant" && req.user.storeId) {
+      const {variant , filter} = req.body;
+      const update = {};
+      update[`products.$[elem].variants`] = variant;
+      const result = await BusinessData.updateOne(
+        { _id: req.user.storeId },
+        { $set: update },
+        { arrayFilters: [{ "elem._id": filter }] }
+      );
+      if(result && result.modifiedCount === 1){
+        res.status(200).send("Stock Updated");
+      }else{
+        res.status(500).send({message : "Something Went Wrong"})
+      }
+    } else {
+      res.status(401).send("Unauthorized");
+    }
+  } catch (error) {
+    res.send(error);
+  }
+});
 
 app.get("/getProducts", auth, async (req, res, next) => {
   try {
@@ -1512,8 +1626,6 @@ app.get("/getProducts", auth, async (req, res, next) => {
       finalResult = productsData;
     }
 
-    console.log(finalResult);
-
     if (mode !== "merchant") {
       brand = brand.split(",").filter((item) => item.trim() !== "");
       subCategory = subCategory.split(",").filter((item) => item.trim() !== "");
@@ -1552,8 +1664,17 @@ app.get("/getProducts", auth, async (req, res, next) => {
         (a, b) => b.reviews.averageRating - a.reviews.averageRating
       );
     }
-    if(mode === "merchant"){
-      finalResult = finalResult.sort((a, b) => new Date(b.timestamps.updatedAt) - new Date(a.timestamps.updatedAt))
+    if (mode === "merchant") {
+      finalResult = finalResult.sort(
+        (a, b) =>
+          new Date(b.timestamps.updatedAt) - new Date(a.timestamps.updatedAt)
+      );
+    }
+    if (price != 0) {
+      price = parseInt(price);
+      finalResult = finalResult.filter(
+        (product) => product.variants[0].sellingPrice < price
+      );
     }
     const data = finalResult.slice(skip, limit);
 
@@ -1609,7 +1730,7 @@ const processFilesAndMergeWithBody = async (files, body) => {
 };
 
 const getNestedValue = (obj, path) => {
-  return path.split('.').reduce((acc, part) => {
+  return path.split(".").reduce((acc, part) => {
     if (acc === undefined || acc === null) {
       return undefined;
     }
@@ -1620,7 +1741,7 @@ const getNestedValue = (obj, path) => {
 app.get("/product/config", auth, async (req, res, next) => {
   try {
     if (req.token) {
-      const {category} = req.query
+      const { category } = req.query;
       res.status(200).send(PRODUCT_FORM_CONFIG[category]);
     } else {
       res.status(401).send("Unauthorized");
@@ -1630,7 +1751,6 @@ app.get("/product/config", auth, async (req, res, next) => {
   }
 });
 
-
 app.post("/addProduct", auth, upload.any(), async (req, res, next) => {
   try {
     if (req.token && req.user.role === "merchant" && req.user.storeId) {
@@ -1638,30 +1758,39 @@ app.post("/addProduct", auth, upload.any(), async (req, res, next) => {
       if (!req.body.variants || !Array.isArray(req.body.variants)) {
         req.body.variants = [];
       } else {
-        req.body.variants = req.body.variants.map(variant => ({
+        req.body.variants = req.body.variants.map((variant) => ({
           ...variant,
-          Images: Array.isArray(variant.Images) ? variant.Images : []
+          Images: Array.isArray(variant.Images) ? variant.Images : [],
         }));
       }
-      
-      const updatedBody = await processFilesAndMergeWithBody(req.files, req.body);
-      updatedBody.variants.forEach((variant,index)=> {
+
+      const updatedBody = await processFilesAndMergeWithBody(
+        req.files,
+        req.body
+      );
+      updatedBody.variants.forEach((variant, index) => {
         const path = variant.sharedImagePath;
-        updatedBody.variants[index]._id = new mongoose.Types.ObjectId()
+        updatedBody.variants[index]._id = new mongoose.Types.ObjectId();
         const MRP = parseFloat(variant.MRP).toFixed(2);
         const sellingPrice = parseFloat(variant.sellingPrice).toFixed(2);
-        const inclusiveTax = parseFloat((variant.sellingPrice * updatedBody["GST rate slab"]) / 100).toFixed(2);
-
-        updatedBody.variants[index].MRP = MRP
-        updatedBody.variants[index].sellingPrice = sellingPrice
-        updatedBody.variants[index].inclusiveTax = inclusiveTax
-        if(path != "upload"){
+        const inclusiveTax = parseFloat(
+          (variant.sellingPrice * updatedBody["GST rate slab"]) / 100
+        ).toFixed(2);
+        updatedBody.variants[index].MRP = MRP;
+        updatedBody.variants[index].sellingPrice = sellingPrice;
+        updatedBody.variants[index].inclusiveTax = inclusiveTax;
+        updatedBody.selectedVariations.map((e) => {
+          updatedBody.variants[index][e] = capitalizeEachWord(
+            updatedBody.variants[index][e]
+          );
+        });
+        if (path != "upload") {
           const sharedImage = getNestedValue(updatedBody, path);
-          updatedBody.variants[index].Images = sharedImage
+          updatedBody.variants[index].Images = sharedImage;
           console.log(sharedImage);
         }
-      }); 
-      
+      });
+
       // function toCapitalizedWords(str) {
       //   return str
       //     .trim() // Remove extra spaces at the beginning and end
@@ -1687,7 +1816,7 @@ app.post("/addProduct", auth, upload.any(), async (req, res, next) => {
 
       const product = await BusinessData.updateOne(
         { _id: req.user.storeId },
-        { $push: { products: {...updatedBody} } }
+        { $push: { products: { ...updatedBody } } }
       );
 
       if (product.acknowledged) {
@@ -1737,15 +1866,23 @@ app.get("/product", async (req, res, next) => {
 
     const result = await BusinessData.findOne(
       { "products._id": productId },
-      { "products.$": 1 , "shopName" : 1 , _id : 1 , address : 1 , contactNumber : 1 , shopImage : 1 , shopLogo : 1},
+      {
+        "products.$": 1,
+        shopName: 1,
+        _id: 1,
+        address: 1,
+        contactNumber: 1,
+        shopImage: 1,
+        shopLogo: 1,
+      }
     ).lean();
-    console.log(result)
+    console.log(result);
     if (!result || result.products.length === 0) {
       return res.status(404).json({ error: "Product not found" });
     }
     const response = {
       ...result.products[0],
-      storeId: result._id,  // Assign _id to storeId
+      storeId: result._id, // Assign _id to storeId
       shopName: result.shopName,
       address: result.address,
       contactNumber: result.contactNumber,
@@ -1757,65 +1894,89 @@ app.get("/product", async (req, res, next) => {
     next(error);
   }
 });
-app.put(
-  "/editProduct",
-  auth,
-  upload.any(),
-  async (req, res, next) => {
-    try {
-      if (req.token && req.user.role === "merchant" && req.user.storeId) {
-        if (!req.body.variants || !Array.isArray(req.body.variants)) {
-          req.body.variants = [];
-        } else {
-          req.body.variants = req.body.variants.map(variant => ({
-            ...variant,
-            NewImages: Array.isArray(variant.NewImages) ? variant.NewImages : []
-          }));
-        }
-
-        const updatedBody = await processFilesAndMergeWithBody(req.files, req.body);
-        console.log(updatedBody)
-        updatedBody.variants.forEach((variant,index)=> {
-          const path = variant.sharedImagePath;
-          const MRP = parseFloat(variant.MRP).toFixed(2);
-          const sellingPrice = parseFloat(variant.sellingPrice).toFixed(2);
-          const inclusiveTax = parseFloat((variant.sellingPrice * updatedBody["GST rate slab"]) / 100).toFixed(2);
-
-          updatedBody.variants[index].MRP = MRP
-          updatedBody.variants[index].sellingPrice = sellingPrice
-          updatedBody.variants[index].inclusiveTax = inclusiveTax
-
-          if(variant.NewImages.length > 0){
-            updatedBody.variants[index].Images = [...variant.Images , ...variant.NewImages]
-            delete updatedBody.variants[index]["NewImages"]
-          }
-          if(path != "upload"){
-            const sharedImage = getNestedValue(updatedBody, path);
-            updatedBody.variants[index].Images = sharedImage
-          }
-        }); 
-        const filter = req.body._id;
-        const update = {};
-
-        for (const [key, value] of Object.entries(updatedBody)) {
-          if (key === "statusAdmin" || key === "_id") continue;
-          update[`products.$[elem].${key}`] = value;
-        }
-        const result = await BusinessData.updateOne(
-          { _id: req.user.storeId },
-          { $set: update},
-          { arrayFilters: [{ "elem._id": filter }] }
-        );
-        fetchDataFromDB();
-        res.status(200).send(updatedBody);
+app.put("/editProduct", auth, upload.any(), async (req, res, next) => {
+  try {
+    if (req.token && req.user.role === "merchant" && req.user.storeId) {
+      if (!req.body.variants || !Array.isArray(req.body.variants)) {
+        req.body.variants = [];
       } else {
-        res.status(401).send("Unauthorized");
+        req.body.variants = req.body.variants.map((variant) => ({
+          ...variant,
+          NewImages: Array.isArray(variant.NewImages) ? variant.NewImages : [],
+        }));
       }
-    } catch (error) {
-      next(error);
+
+      const updatedBody = await processFilesAndMergeWithBody(
+        req.files,
+        req.body
+      );
+      console.log(updatedBody);
+      updatedBody.variants.forEach((variant, index) => {
+        const path = variant.sharedImagePath;
+        const MRP = parseFloat(variant.MRP).toFixed(2);
+        const sellingPrice = parseFloat(variant.sellingPrice).toFixed(2);
+        const inclusiveTax = parseFloat(
+          (variant.sellingPrice * updatedBody["GST rate slab"]) / 100
+        ).toFixed(2);
+
+        updatedBody.variants[index].MRP = MRP;
+        updatedBody.variants[index].sellingPrice = sellingPrice;
+        updatedBody.variants[index].inclusiveTax = inclusiveTax;
+
+        if (variant.NewImages.length > 0) {
+          updatedBody.variants[index].Images = [
+            ...variant.Images,
+            ...variant.NewImages,
+          ];
+          delete updatedBody.variants[index]["NewImages"];
+        }
+        if (path != "upload") {
+          const sharedImage = getNestedValue(updatedBody, path);
+          updatedBody.variants[index].Images = sharedImage;
+        }
+      });
+      const filter = req.body._id;
+      const update = {};
+
+      for (const [key, value] of Object.entries(updatedBody)) {
+        if (key === "statusAdmin" || key === "_id") continue;
+        update[`products.$[elem].${key}`] = value;
+      }
+      const result = await BusinessData.updateOne(
+        { _id: req.user.storeId },
+        { $set: update },
+        { arrayFilters: [{ "elem._id": filter }] }
+      );
+      fetchDataFromDB();
+      res.status(200).send(updatedBody);
+    } else {
+      res.status(401).send("Unauthorized");
     }
+  } catch (error) {
+    next(error);
   }
-);
+});
+app.get("/check-sku/:sku", auth, async (req, res) => {
+  const { id, sku } = req.params;
+
+  try {
+    // Step 3: Write the Logic to Check for the SKU in the specific document
+    const document = await BusinessData.findOne({
+      _id: req.user.storeId,
+      "products.variants.SKU": sku,
+    });
+
+    if (document) {
+      return res.status(200).json({ exists: true });
+    } else {
+      return res.status(200).json({ exists: false });
+    }
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.delete("/deleteProduct", auth, async (req, res, next) => {
   try {
     if (req.token && req.user.role === "merchant" && req.user.storeId) {
@@ -1867,9 +2028,12 @@ app.post("/get-store-name", async (req, res, next) => {
       soldBy: findStore.shopName,
       shopImage: findStore.shopImage,
       shopLogo: findStore.shopLogo,
-      address : findStore.address,
-      contactNumber : findStore.contactNumber,
-      timings : findStore.timings
+      address: findStore.address,
+      contactNumber: findStore.contactNumber,
+      timings: findStore.timings,
+      lat: findStore.location.coordinates[0],
+      long: findStore.location.coordinates[1],
+      storeOpen: isStoreOpen(findStore.timings),
     });
   } catch (error) {
     next(error);
@@ -2282,8 +2446,10 @@ app.post("/redeem-loyalty-code", auth, async (req, res, next) => {
 app.post("/create-order", auth, async (req, res, next) => {
   try {
     if (req.token) {
-      const products = req.body.products
-      const variantIds = Object.values(products).map(item => ObjectId.createFromHexString(item.variantId));;
+      const products = req.body.products;
+      const variantIds = Object.values(products).map((item) =>
+        ObjectId.createFromHexString(item.variantId)
+      );
       let totalAmount = 0;
       let tax = 0;
       const ids = Object.values(products).map((p) =>
@@ -2305,18 +2471,22 @@ app.post("/create-order", auth, async (req, res, next) => {
       Object.values(products).forEach((prod) => {
         for (const product of filteredProducts) {
           if (String(product._id) === prod.productId) {
-            for(const variant of product.variants){
-                if(String(variant._id) === prod.variantId){
-                  totalAmount += variant.sellingPrice * prod.quantity;
-                  tax += ((variant.sellingPrice * prod.quantity) * product["GST rate slab"]) / 100
-                  break;
-                }
+            for (const variant of product.variants) {
+              if (String(variant._id) === prod.variantId) {
+                totalAmount += variant.sellingPrice * prod.quantity;
+                tax +=
+                  (variant.sellingPrice *
+                    prod.quantity *
+                    product["GST rate slab"]) /
+                  100;
+                break;
+              }
             }
             break;
           }
         }
       });
-      const amount = parseFloat((totalAmount + tax)).toFixed(2);
+      const amount = parseFloat(totalAmount).toFixed(2);
       const options = {
         amount: Number(amount * 100),
         currency: "INR",
@@ -2412,11 +2582,13 @@ app.post("/get-merchant-orders", auth, async (req, res, next) => {
     next(error);
   }
 });
-app.post("/cop-order" , auth , async(req,res,next) => {
-  try{
-    if(req.token){
-      const products = req.body.products
-      const variantIds = Object.values(products).map(item => ObjectId.createFromHexString(item.variantId));;
+app.post("/cop-order", auth, async (req, res, next) => {
+  try {
+    if (req.token) {
+      const products = req.body.products;
+      const variantIds = Object.values(products).map((item) =>
+        ObjectId.createFromHexString(item.variantId)
+      );
       let totalAmount = 0;
       let tax = 0;
       const ids = Object.values(products).map((p) =>
@@ -2438,18 +2610,22 @@ app.post("/cop-order" , auth , async(req,res,next) => {
       Object.values(products).forEach((prod) => {
         for (const product of filteredProducts) {
           if (String(product._id) === prod.productId) {
-            for(const variant of product.variants){
-                if(String(variant._id) === prod.variantId){
-                  totalAmount += variant.sellingPrice * prod.quantity;
-                  tax += ((variant.sellingPrice * prod.quantity) * product["GST rate slab"]) / 100
-                  break;
-                }
+            for (const variant of product.variants) {
+              if (String(variant._id) === prod.variantId) {
+                totalAmount += variant.sellingPrice * prod.quantity;
+                tax +=
+                  (variant.sellingPrice *
+                    prod.quantity *
+                    product["GST rate slab"]) /
+                  100;
+                break;
+              }
             }
             break;
           }
         }
       });
-      const amount = parseFloat((totalAmount + tax)).toFixed(2);
+      const amount = parseFloat(totalAmount).toFixed(2);
 
       const productDetails = Object.values(products).map((p) => p);
       const userDetails = req.user;
@@ -2458,7 +2634,7 @@ app.post("/cop-order" , auth , async(req,res,next) => {
       }).lean();
       const session = await mongoose.startSession();
       session.startTransaction();
-      console.log(productDetails)
+      console.log(productDetails);
       const bookingData = {
         userId: userDetails.id,
         userName: userDetails.name,
@@ -2474,16 +2650,16 @@ app.post("/cop-order" , auth , async(req,res,next) => {
         amount,
         amountPaid: 0,
         paymentStatus: "Pending",
-        paymentMode : "Cash On Point",
+        paymentMode: "Cash On Point",
         products: productDetails.map((p) => ({
           productId: p.productId,
-          variant : {...p.variant},
+          variant: { ...p.variant },
           price: p.price,
-          SGST : (((p.price * p.quantity) * (p.tax / 2)) / 100).toFixed(2),
-          CGST : (((p.price * p.quantity) * (p.tax / 2)) / 100).toFixed(2),
-          tax : p.tax,
-          totalTax : (((p.price * p.quantity) * p.tax) / 100).toFixed(2),
-          grandTotal : ((p.price * p.quantity) + (((p.price * p.quantity) * p.tax) / 100)).toFixed(2),
+          SGST: ((p.price * p.quantity * (p.tax / 2)) / 100).toFixed(2),
+          CGST: ((p.price * p.quantity * (p.tax / 2)) / 100).toFixed(2),
+          tax: p.tax,
+          totalTax: ((p.price * p.quantity * p.tax) / 100).toFixed(2),
+          grandTotal: (p.price * p.quantity).toFixed(2),
           name: p.productName,
           image: p.image,
           quantity: p.quantity,
@@ -2508,15 +2684,14 @@ app.post("/cop-order" , auth , async(req,res,next) => {
       res.json({
         message: "Order Successfull",
       });
-
-    }    
-  }catch(error){
- console.log(error);
+    }
+  } catch (error) {
+    console.log(error);
     await session.abortTransaction();
     session.endSession();
     res.status(500).json({ message: "Internal Server Error!" });
   }
-})
+});
 app.post("/verify-payment", auth, async (req, res, next) => {
   try {
     const {
@@ -2567,17 +2742,17 @@ app.post("/verify-payment", auth, async (req, res, next) => {
         orderStatus: "Awaiting Confirmation",
         amount: formatPrice(orderDetails.amount / 100),
         amountPaid: formatPrice(orderDetails.amount_paid / 100),
-        paymentMode : "Prepaid",
+        paymentMode: "Prepaid",
         paymentStatus: "Completed",
         products: productDetails.map((p) => ({
           productId: p.productId,
-          variant : {...p.variant},
+          variant: { ...p.variant },
           price: p.price,
-          SGST : (((p.price * p.quantity) * (p.tax / 2)) / 100).toFixed(2),
-          CGST : (((p.price * p.quantity) * (p.tax / 2)) / 100).toFixed(2),
-          tax : p.tax,
-          totalTax : (((p.price * p.quantity) * p.tax) / 100).toFixed(2),
-          grandTotal : ((p.price * p.quantity) + (((p.price * p.quantity) * p.tax) / 100)).toFixed(2),
+          SGST: ((p.price * p.quantity * (p.tax / 2)) / 100).toFixed(2),
+          CGST: ((p.price * p.quantity * (p.tax / 2)) / 100).toFixed(2),
+          tax: p.tax,
+          totalTax: ((p.price * p.quantity * p.tax) / 100).toFixed(2),
+          grandTotal: (p.price * p.quantity).toFixed(2),
           name: p.productName,
           image: p.image,
           quantity: p.quantity,
@@ -2939,7 +3114,7 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
             longitude,
             userId,
           } = approvedStore.stores.find((elem) => elem._id.equals(storeId));
-          console.log(ownerName)
+          console.log(ownerName);
           const data = {
             email: email,
             phone: contactNumber,
@@ -3081,7 +3256,7 @@ app.post("/admin/approve-store", adminAuth, async (req, res, next) => {
       res.status(401).send("Unauthorized");
     }
   } catch (error) {
-    console.log(error)
+    console.log(error);
     console.log(error?.response?.data?.error);
     await session.abortTransaction();
     session.endSession();
