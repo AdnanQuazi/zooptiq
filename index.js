@@ -24,7 +24,8 @@ const corsOptions = {
     "https://zooptiq.vercel.app",
     "https://www.zooptick.com",
     "https://www.zooptick.in",
-    "https://zooptiq-adnan-quazis-projects.vercel.app/"
+    "https://zooptiq-adnan-quazis-projects.vercel.app"
+
   ],
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,
