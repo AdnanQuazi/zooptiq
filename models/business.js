@@ -176,6 +176,11 @@ const businessSchema = new mongoose.Schema({
       required: true,
     },
   },
+  inventoryAlert : {
+    type : Number,
+    required : true,
+    default : 10
+  },
   gst: {
     number: {
       type: String,

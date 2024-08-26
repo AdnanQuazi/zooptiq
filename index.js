@@ -1420,6 +1420,34 @@ app.get("/search-stores", async (req, res, next) => {
     next(error);
   }
 });
+app.put('/inventory/setAlert',auth, async (req, res) => {
+  try {
+
+    if(!req.token){
+      res.status(401).send("Unauthorized")
+      return
+    }
+    const { inventoryAlert } = req.body;
+    
+    if (typeof parseInt(inventoryAlert) !== 'number') {
+      return res.status(400).send('inventoryAlert must be a number');
+    }
+
+    const updatedItem = await BusinessData.findByIdAndUpdate(
+      req.user.storeId,
+      { inventoryAlert },
+      { new: true } // returns the updated document
+    );
+
+    if (!updatedItem) {
+      return res.status(404).send('Item not found');
+    }
+    res.json("Inventory Alert is Updated");
+  } catch (error) {
+    console.log(error)
+    res.status(500).send('Server Error');
+  }
+});
 app.get("/inventory", auth, async (req, res, next) => {
   try {
     if (req.token) {
@@ -1432,8 +1460,25 @@ app.get("/inventory", auth, async (req, res, next) => {
         // Fetch the user's document and paginate the products array
         let userDocument = await BusinessData.findOne(
           { _id: req.user.storeId },
-          { products: 1 } // Retrieve the entire products array
+          { products: 1 , inventoryAlert : 1} // Retrieve the entire products array
         ).exec();
+        let inventoryAlert = userDocument.inventoryAlert;
+        let totalVariants = 0;
+        let lowInventoryItems = new Set();
+        
+        userDocument.products.forEach(product => {
+          totalVariants += product.variants.length;
+          
+          for (let variant of product.variants) {
+            if (variant.Stock <= inventoryAlert) {
+              lowInventoryItems.add(product);
+              break; // Exit the loop as soon as we find a low stock variant
+            }
+          }
+        });
+        
+        // Convert Set back to array if needed
+        lowInventoryItems = Array.from(lowInventoryItems);
         if (!userDocument) {
           return res.status(404).send("No products found");
         }
@@ -1448,6 +1493,9 @@ app.get("/inventory", auth, async (req, res, next) => {
           .status(200)
           .json({
             products: paginatedResults,
+            inventoryAlert : inventoryAlert,
+            totalSKU : totalVariants,
+            lowInventoryItems,
             nextPage: limit >= userDocument.length ? undefined : page + 1,
           });
       }else{
